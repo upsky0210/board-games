@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D 孔明棋 - 阿喵老師的棋藝教室</title>
+
+  <!-- Three.js, OrbitControls & Canvas Confetti -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #f59e0b;
+      --primary-dark: #d97706;
+      --accent: #10b981;
+      --bg-dark: #0f172a;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --border-color: rgba(255, 255, 255, 0.14);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #canvas-container, #canvas-container canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    /* 頂部導覽列 */
+    .top-bar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .brand-pill {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 7px 18px;
+      min-height: 44px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      pointer-events: auto;
+    }
+
+    .brand-icon {
+      font-size: 20px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #fef08a 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      white-space: nowrap;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn-pill {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 7px 14px;
+      min-height: 44px;
+      box-sizing: border-box;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+      outline: none;
+    }
+
+    .btn-pill:hover {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: rgba(245, 158, 11, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-pill.active {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      border-color: #fbbf24;
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+    }
+
+    select.btn-pill {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 28px;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 16px;
+    }
+
+    select.btn-pill option {
+      background: #0f172a;
+      color: #f8fafc;
+    }
+
+    /* 底部狀態列 */
+    .hud-container {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      pointer-events: none;
+      max-width: 90vw;
+    }
+
+    .status-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 10px 24px;
+      min-height: 44px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      pointer-events: auto;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fef08a;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    /* 浮動提示 Toast */
+    .toast-box {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: #fef08a;
+      padding: 10px 24px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      display: none;
+      z-index: 50;
+      pointer-events: none;
+      animation: fadeInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translate(-50%, -12px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* 彈窗樣式 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .modal-card {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 28px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #fef08a, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .modal-content {
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #cbd5e1;
+      margin-bottom: 24px;
+    }
+
+    .modal-content strong {
+      color: #fef08a;
+    }
+
+    .rule-bullet {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .modal-btn-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      border: none;
+      color: #ffffff;
+      padding: 12px 24px;
+      min-height: 44px;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+      transition: all 0.2s;
+    }
+
+    .btn-action.btn-secondary {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: none;
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6);
+    }
+
+    @media (max-width: 640px) {
+      .top-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+      .brand-pill { justify-content: center; }
+      .top-actions { justify-content: center; flex-wrap: wrap; }
+      .hud-container { bottom: 12px; }
+      .status-card { font-size: 12px; padding: 8px 16px; }
+      .toast-box { top: 120px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- T04：載入遮罩，預設顯示；主程式確認正常後隱藏 -->
+  <div id="load-screen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1e293b;color:#fff;font-family:sans-serif;font-size:1.1rem;gap:1rem;">
+    <div id="load-msg">⏳ 遊戲載入中…</div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <!-- 頂部導覽列 -->
+  <div class="top-bar">
+    <div class="brand-pill">
+      <span class="brand-icon">🐱</span>
+      <span class="brand-title">阿喵老師的孔明棋教室</span>
+    </div>
+
+    <div class="top-actions">
+      <select id="level-select" class="btn-pill" onchange="onSelectLevel(Number(this.value))">
+        <!-- 由程式填入關卡 -->
+      </select>
+      <button class="btn-pill" id="btn-hint" onclick="showHint()">💡 提示</button>
+      <button class="btn-pill" id="btn-undo" onclick="undoMove()">↩️ 悔棋</button>
+      <button class="btn-pill" id="btn-restart" onclick="startLevel(levelIndex)">🔄 重來</button>
+      <button class="btn-pill" id="btn-rules" onclick="openRules()">📖 規則</button>
+      <button class="btn-pill" id="btn-sound" onclick="toggleAudio()">🔊 音效</button>
+      <button class="btn-pill" id="btn-camera" onclick="resetCameraView()">🎯 視角重設</button>
+    </div>
+  </div>
+
+  <!-- 底部狀態列 -->
+  <div class="hud-container">
+    <div class="status-card" id="status-bar">
+      剩下 0 顆 ・ 第 0 步 ・ 目標：最後一顆停在金色圓圈
+    </div>
+  </div>
+
+  <!-- 浮動提示 Toast -->
+  <div class="toast-box" id="toast-box">提示文字</div>
+
+  <!-- 規則彈窗 -->
+  <div class="modal-overlay" id="rules-modal">
+    <div class="modal-card">
+      <div class="modal-title">📖 孔明棋規則手冊</div>
+      <div class="modal-content">
+        <div class="rule-bullet">
+          <span>🎯</span>
+          <div><strong>棋盤孔位</strong>：棋盤是十字形，共有 33 個孔。一開始依關卡放好棋子。</div>
+        </div>
+        <div class="rule-bullet">
+          <span>🐾</span>
+          <div><strong>跳躍吃子</strong>：一顆棋子沿<strong>上下左右</strong>跳過<strong>相鄰的一顆棋子</strong>，落在後面的<strong>空孔</strong>；被跳過的棋子拿掉。不能斜跳。</div>
+        </div>
+        <div class="rule-bullet">
+          <span>🏆</span>
+          <div><strong>獲勝目標</strong>：沒有任何棋子能跳時，遊戲結束。剩下越少顆越好，若最後剩下一顆且停在<strong>金色圓圈</strong>（正中央）就是最完美的孔明再世！</div>
+        </div>
+        <div class="rule-bullet">
+          <span>⭐</span>
+          <div><strong>單人益智</strong>：單人益智遊戲，沒有電腦對手，可以深思熟慮。</div>
+        </div>
+        <div class="rule-bullet">
+          <span>💡</span>
+          <div><strong>小訣竅</strong>：先從外圍開始跳，最後再把棋子收回中央。</div>
+        </div>
+      </div>
+      <button class="btn-action" onclick="closeRules()">我知道了，開始挑戰！</button>
+    </div>
+  </div>
+
+  <!-- 結算彈窗 -->
+  <div class="modal-overlay" id="result-modal">
+    <div class="modal-card">
+      <div class="modal-title" id="result-title">🏆 完美！孔明再世！</div>
+      <div class="modal-content" style="text-align: center;">
+        <div id="result-stars" style="font-size: 28px; margin-bottom: 12px; letter-spacing: 4px;">⭐⭐⭐</div>
+        <p id="result-stats" style="font-size: 16px; margin-bottom: 12px; color: #fef08a;">剩下 1 顆 ・ 共 31 步 ・ 提示 0 次</p>
+        <p id="result-desc" style="color: #94a3b8; font-size: 13px;">太厲害了！你擁有過人的智慧！</p>
+      </div>
+      <div class="modal-btn-row">
+        <button class="btn-action" onclick="startLevel(levelIndex)">再玩一次 🔄</button>
+        <button class="btn-action btn-secondary" onclick="closeResultAndUndo()">悔一步 ↩️</button>
+        <button class="btn-action" id="btn-next-level" onclick="nextLevel()">下一關 🐾</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 共用程式與規則核心 -->
+  <script src="../common.js"></script>
+  <script src="kongming-core.js"></script>
+
+  <script>
+    /* ==========================================================================
+       全域變數與規格命名 (驗收腳本直接呼叫)
+       ========================================================================== */
+    let board = null;
+    let levelIndex = 0;
+    let selected = null;
+    let isAnimating = false;
+    let isGameOver = false;
+    let history = [];
+    let moveCount = 0;
+    let hintCount = 0;
+    const pegMeshes = {};
+
+    let hintVisible = false;
+    let audioEnabled = true;
+
+    // 3D 渲染物件
+    let scene, camera, renderer, controls;
+    let boardGroup;
+    let raycaster = new THREE.Raycaster();
+    let mouse = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+
+    const CELL = 1.2;
+    let goalMesh = null;
+    const holeMeshes = [];
+    const validMoveMeshes = [];
+
+    const PEG_RADIUS = 0.42;
+    const pegGeo = markShared(new THREE.SphereGeometry(PEG_RADIUS, 32, 24));
+    const pegMat = markShared(new THREE.MeshStandardMaterial({
+      color: 0xd97706,
+      roughness: 0.2,
+      metalness: 0.15
+    }));
+
+    const landingGeo = markShared(new THREE.CircleGeometry(0.36, 32));
+    const landingMat = markShared(new THREE.MeshBasicMaterial({
+      color: 0xf59e0b,
+      transparent: true,
+      opacity: 0.65,
+      side: THREE.DoubleSide
+    }));
+
+    const hintLandingMat = markShared(new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide
+    }));
+
+    /* ==========================================================================
+       音效合成引擎 (Web Audio API)
+       ========================================================================== */
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type, pitchMultiplier = 1.0) {
+      if (!audioEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'select') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520 * pitchMultiplier, now);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.09);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      } else if (type === 'jump') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260 * pitchMultiplier, now);
+        osc.frequency.exponentialRampToValueAtTime(540 * pitchMultiplier, now + 0.14);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      } else if (type === 'remove') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320 * pitchMultiplier, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      } else if (type === 'win') {
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+          gain.gain.setValueAtTime(0.3, now + idx * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5 + idx * 0.09);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.09);
+          osc.stop(now + 0.6 + idx * 0.09);
+        });
+      }
+    }
+
+    /* ==========================================================================
+       3D 場景初始化
+       ========================================================================== */
+    function initThreeScene() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0f1d);
+      scene.fog = new THREE.FogExp2(0x0a0f1d, 0.02);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      resetCameraView();
+
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        logarithmicDepthBuffer: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.maxPolarAngle = Math.PI / 2.15;
+      controls.minDistance = 5;
+      controls.maxDistance = 25;
+
+      // 燈光系統
+      const ambientLight = new THREE.AmbientLight(0xfffbeb, 0.45);
+      scene.add(ambientLight);
+
+      const mainSun = new THREE.DirectionalLight(0xfffaed, 1.15);
+      mainSun.position.set(10, 22, 12);
+      mainSun.castShadow = true;
+      mainSun.shadow.mapSize.width = 1024;
+      mainSun.shadow.mapSize.height = 1024;
+      mainSun.shadow.camera.left = -8;
+      mainSun.shadow.camera.right = 8;
+      mainSun.shadow.camera.top = 8;
+      mainSun.shadow.camera.bottom = -8;
+      mainSun.shadow.camera.near = 2;
+      mainSun.shadow.camera.far = 45;
+      mainSun.shadow.bias = -0.0001;
+      mainSun.shadow.normalBias = 0.04;
+      scene.add(mainSun);
+
+      const rimLight = new THREE.DirectionalLight(0x60a5fa, 0.35);
+      rimLight.position.set(-14, 16, -12);
+      scene.add(rimLight);
+
+      const frontFill = new THREE.DirectionalLight(0xfef08a, 0.25);
+      frontFill.position.set(0, 8, 16);
+      scene.add(frontFill);
+
+      boardGroup = new THREE.Group();
+      scene.add(boardGroup);
+
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('pointerdown', (e) => {
+        pointerDownPos.x = e.clientX;
+        pointerDownPos.y = e.clientY;
+      });
+      renderer.domElement.addEventListener('pointerup', onPointerUp);
+
+      startRenderLoop({
+        renderer,
+        scene,
+        camera,
+        controls,
+        hasIdleEffects: () => !!selected || hintVisible,
+        onFrame: onFrameUpdate
+      });
+    }
+
+    function resetCameraView() {
+      camera.position.set(0, 13, 9.5);
+      camera.lookAt(0, 0, 0);
+      if (controls) {
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    /* ==========================================================================
+       木質棋盤材質與幾何建構
+       ========================================================================== */
+    function getWoodTexture() {
+      const w = 512, h = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#3a2012';
+      ctx.fillRect(0, 0, w, h);
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          const dist = Math.hypot(x - 256, y - 256);
+          const ring = Math.sin(dist * 0.12 + Math.sin(y * 0.04) * 2.5);
+          const fine = Math.sin(x * 0.3 + Math.cos(y * 0.08) * 2.0) * 0.15;
+          const v = Math.max(0, Math.min(1, 0.5 + ring * 0.35 + fine));
+
+          data[idx] = Math.floor(48 + v * 40);
+          data[idx + 1] = Math.floor(26 + v * 22);
+          data[idx + 2] = Math.floor(14 + v * 12);
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      return tex;
+    }
+
+    function build3DBoard() {
+      // 清空舊棋盤
+      while (boardGroup.children.length > 0) {
+        removeAndDispose(boardGroup.children[0], boardGroup);
+      }
+
+      // 木頭棋盤底座
+      const woodTex = markShared(getWoodTexture());
+      const boardGeo = new THREE.CylinderGeometry(5.2, 5.4, 0.45, 64);
+      const boardMat = new THREE.MeshStandardMaterial({
+        map: woodTex,
+        roughness: 0.35,
+        metalness: 0.05
+      });
+      const boardMesh = new THREE.Mesh(boardGeo, boardMat);
+      boardMesh.position.y = -0.225;
+      boardMesh.receiveShadow = true;
+      boardGroup.add(boardMesh);
+
+      // 外圈黃銅金屬邊框修飾環
+      const rimGeo = new THREE.TorusGeometry(5.25, 0.07, 16, 64);
+      const rimMat = markShared(new THREE.MeshStandardMaterial({
+        color: 0xd4af37,
+        roughness: 0.25,
+        metalness: 0.8
+      }));
+      const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+      rimMesh.rotation.x = Math.PI / 2;
+      rimMesh.position.y = 0.005;
+      boardGroup.add(rimMesh);
+
+      buildHoles();
+    }
+
+    function buildHoles() {
+      holeMeshes.length = 0;
+      const holeGeo = markShared(new THREE.CircleGeometry(0.35, 32));
+      const holeMat = markShared(new THREE.MeshStandardMaterial({
+        color: 0x160c07,
+        roughness: 0.85,
+        metalness: 0.1
+      }));
+
+      for (let r = 0; r < KM_SIZE; r++) {
+        for (let c = 0; c < KM_SIZE; c++) {
+          if (!kmIsHole(r, c)) continue;
+          const x = (c - 3) * CELL;
+          const z = (r - 3) * CELL;
+          const holeMesh = new THREE.Mesh(holeGeo, holeMat);
+          holeMesh.rotation.x = -Math.PI / 2;
+          holeMesh.position.set(x, 0.002, z);
+          holeMesh.receiveShadow = true;
+          holeMesh.userData = { r, c, isHole: true };
+          boardGroup.add(holeMesh);
+          holeMeshes.push(holeMesh);
+        }
+      }
+
+      // 目標金色圓環 (指示最後一顆棋子停靠點)
+      const ringGeo = markShared(new THREE.RingGeometry(0.42, 0.48, 32));
+      const ringMat = markShared(new THREE.MeshStandardMaterial({
+        color: 0xf59e0b,
+        roughness: 0.25,
+        metalness: 0.85,
+        side: THREE.DoubleSide
+      }));
+      goalMesh = new THREE.Mesh(ringGeo, ringMat);
+      goalMesh.rotation.x = -Math.PI / 2;
+      goalMesh.position.set(0, 0.003, 0);
+      boardGroup.add(goalMesh);
+    }
+
+    function updateGoalRing() {
+      if (!goalMesh || !KM_LEVELS[levelIndex]) return;
+      const goal = KM_LEVELS[levelIndex].goal;
+      goalMesh.position.set((goal.c - 3) * CELL, 0.003, (goal.r - 3) * CELL);
+    }
+
+    function syncPegs() {
+      // 移除舊的棋子
+      for (const key of Object.keys(pegMeshes)) {
+        if (pegMeshes[key]) {
+          removeAndDispose(pegMeshes[key], scene);
+          delete pegMeshes[key];
+        }
+      }
+
+      if (!board) return;
+
+      // 依 board 建立新的棋子
+      for (let r = 0; r < KM_SIZE; r++) {
+        for (let c = 0; c < KM_SIZE; c++) {
+          const idx = kmIndex(r, c);
+          if (board[idx] === 1) {
+            const mesh = new THREE.Mesh(pegGeo, pegMat);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.position.set((c - 3) * CELL, PEG_RADIUS, (r - 3) * CELL);
+            mesh.userData = { r, c, isPeg: true, idx };
+            scene.add(mesh);
+            pegMeshes[idx] = mesh;
+          }
+        }
+      }
+    }
+
+    function onFrameUpdate(now) {
+      if (selected) {
+        const mesh = pegMeshes[kmIndex(selected.r, selected.c)];
+        if (mesh) {
+          mesh.position.y = (PEG_RADIUS + 0.3) + Math.sin(now * 0.006) * 0.05;
+        }
+      }
+      if (validMoveMeshes.length > 0) {
+        const op = 0.5 + Math.sin(now * 0.008) * 0.25;
+        landingMat.opacity = op;
+      }
+      if (hintVisible) {
+        hintLandingMat.opacity = 0.4 + Math.sin(now * 0.012) * 0.5;
+      }
+    }
+
+    function clearSelection() {
+      hintVisible = false;
+      if (selected) {
+        const mesh = pegMeshes[kmIndex(selected.r, selected.c)];
+        if (mesh) {
+          mesh.position.y = PEG_RADIUS;
+        }
+        selected = null;
+      }
+      while (validMoveMeshes.length > 0) {
+        const m = validMoveMeshes.pop();
+        if (m.parent) m.parent.remove(m);
+      }
+    }
+
+    function selectPeg(r, c) {
+      clearSelection();
+      const moves = kmMovesFrom(board, r, c);
+      if (moves.length === 0) {
+        showToast('這顆棋子跳不動喔，換一顆試試！');
+        return;
+      }
+      selected = { r, c };
+      playSound('select');
+
+      moves.forEach(m => {
+        const disc = new THREE.Mesh(landingGeo, landingMat);
+        disc.rotation.x = -Math.PI / 2;
+        disc.position.set((m.to.c - 3) * CELL, 0.005, (m.to.r - 3) * CELL);
+        disc.userData = { isDestination: true, move: m };
+        scene.add(disc);
+        validMoveMeshes.push(disc);
+      });
+    }
+
+    function onPointerUp(event) {
+      if (isAnimating || isGameOver) return;
+
+      const dist = Math.hypot(event.clientX - pointerDownPos.x, event.clientY - pointerDownPos.y);
+      if (dist > 8) return; // 拖曳轉視角，忽略點擊
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // 1. 優先檢查金色合法落點圓盤
+      if (validMoveMeshes.length > 0) {
+        const hitDests = raycaster.intersectObjects(validMoveMeshes, true);
+        if (hitDests.length > 0) {
+          const move = hitDests[0].object.userData.move;
+          tryJump(move);
+          return;
+        }
+      }
+
+      // 2. 檢查棋子
+      const pegsList = Object.values(pegMeshes);
+      const hitPegs = raycaster.intersectObjects(pegsList, true);
+      if (hitPegs.length > 0) {
+        let obj = hitPegs[0].object;
+        while (obj && !obj.userData.isPeg && obj.parent) {
+          obj = obj.parent;
+        }
+        if (obj && obj.userData.isPeg) {
+          const { r, c } = obj.userData;
+          if (selected && selected.r === r && selected.c === c) {
+            clearSelection();
+          } else {
+            selectPeg(r, c);
+          }
+          return;
+        }
+      }
+
+      // 3. 備援：點擊棋盤上的孔 (若正好是合法落點)
+      if (selected && validMoveMeshes.length > 0) {
+        const hitHoles = raycaster.intersectObjects(holeMeshes, true);
+        if (hitHoles.length > 0) {
+          const { r, c } = hitHoles[0].object.userData;
+          const matched = validMoveMeshes.find(m => m.userData.move && m.userData.move.to.r === r && m.userData.move.to.c === c);
+          if (matched) {
+            tryJump(matched.userData.move);
+            return;
+          }
+        }
+      }
+
+      // 4. 點在其他地方 -> 取消選取
+      clearSelection();
+    }
+
+    /* ==========================================================================
+       遊戲流程與走法實作
+       ========================================================================== */
+    function startLevel(i) {
+      gameEpoch++;
+      levelIndex = i;
+      board = kmCreateBoard(KM_LEVELS[i]);
+      history = [];
+      clearSelection();
+      moveCount = 0;
+      hintCount = 0;
+      isGameOver = false;
+      isAnimating = false;
+      hintVisible = false;
+
+      const modal = document.getElementById('result-modal');
+      if (modal) modal.style.display = 'none';
+
+      updateGoalRing();
+      syncPegs();
+      updateStatusUI();
+
+      const sel = document.getElementById('level-select');
+      if (sel && Number(sel.value) !== i) {
+        sel.value = i;
+      }
+    }
+
+    function tryJump(move) {
+      if (isAnimating) return;
+      clearSelection();
+
+      history.push(board.slice());
+      board = kmApplyMove(board, move);
+      moveCount++;
+      updateStatusUI();
+
+      const fromIdx = kmIndex(move.from.r, move.from.c);
+      const overIdx = kmIndex(move.over.r, move.over.c);
+      const toIdx = kmIndex(move.to.r, move.to.c);
+
+      const fromMesh = pegMeshes[fromIdx];
+      const overMesh = pegMeshes[overIdx];
+
+      delete pegMeshes[fromIdx];
+      pegMeshes[toIdx] = fromMesh;
+      if (fromMesh) {
+        fromMesh.userData.r = move.to.r;
+        fromMesh.userData.c = move.to.c;
+        fromMesh.userData.idx = toIdx;
+      }
+
+      isAnimating = true;
+      playSound('jump');
+
+      const ep = gameEpoch;
+      const startX = (move.from.c - 3) * CELL;
+      const startZ = (move.from.r - 3) * CELL;
+      const targetX = (move.to.c - 3) * CELL;
+      const targetZ = (move.to.r - 3) * CELL;
+      const startY = PEG_RADIUS;
+      const peakY = 1.35;
+
+      const jumpDuration = 320;
+      const shrinkDuration = 250;
+      const startTime = performance.now();
+      let overRemoved = false;
+
+      function animStep(now) {
+        if (ep !== gameEpoch) return;
+
+        const elapsed = now - startTime;
+        const tJump = Math.min(1, Math.max(0, elapsed / jumpDuration));
+        const tShrink = Math.min(1, Math.max(0, elapsed / shrinkDuration));
+
+        if (overMesh && !overRemoved) {
+          const s = Math.max(0, 1 - tShrink);
+          overMesh.scale.set(s, s, s);
+          if (tShrink >= 1) {
+            overRemoved = true;
+            removeAndDispose(overMesh, scene);
+            delete pegMeshes[overIdx];
+            playSound('remove');
+          }
+        }
+
+        if (fromMesh) {
+          fromMesh.position.x = startX + (targetX - startX) * tJump;
+          fromMesh.position.z = startZ + (targetZ - startZ) * tJump;
+          fromMesh.position.y = startY + 4 * (peakY - startY) * tJump * (1 - tJump);
+        }
+
+        if (tJump < 1) {
+          requestAnimationFrame(animStep);
+        } else {
+          if (fromMesh) {
+            fromMesh.position.set(targetX, startY, targetZ);
+          }
+          if (overMesh && !overRemoved) {
+            overRemoved = true;
+            removeAndDispose(overMesh, scene);
+            delete pegMeshes[overIdx];
+          }
+          isAnimating = false;
+          updateStatusUI();
+          checkGameOver();
+        }
+      }
+
+      requestAnimationFrame(animStep);
+    }
+
+    function checkGameOver() {
+      if (kmAllMoves(board).length === 0) {
+        isGameOver = true;
+        handleGameOver();
+      }
+    }
+
+    function handleGameOver() {
+      const remaining = kmCountPegs(board);
+      const goal = KM_LEVELS[levelIndex].goal;
+      const onGoal = (remaining === 1 && board[kmIndex(goal.r, goal.c)] === 1);
+      const rating = kmRating(remaining, onGoal);
+
+      playSound('win');
+      if (rating.stars >= 2) {
+        fireConfetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      }
+
+      saveBestStars(levelIndex, rating.stars);
+
+      const modal = document.getElementById('result-modal');
+      document.getElementById('result-title').innerText = rating.title;
+      document.getElementById('result-stars').innerText = '⭐'.repeat(rating.stars) || '🐾';
+      document.getElementById('result-stats').innerText = `剩下 ${remaining} 顆 ・ 共 ${moveCount} 步 ・ 提示 ${hintCount} 次`;
+      
+      const nextBtn = document.getElementById('btn-next-level');
+      if (nextBtn) {
+        nextBtn.style.display = (levelIndex >= KM_LEVELS.length - 1) ? 'none' : 'inline-flex';
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function getBestStars(idx) {
+      try {
+        const raw = localStorage.getItem('kongming-best');
+        if (!raw) return 0;
+        const data = JSON.parse(raw);
+        return (data && typeof data[idx] === 'number') ? data[idx] : 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    function saveBestStars(idx, stars) {
+      try {
+        const raw = localStorage.getItem('kongming-best');
+        const data = raw ? JSON.parse(raw) : {};
+        if (!data[idx] || stars > data[idx]) {
+          data[idx] = stars;
+          localStorage.setItem('kongming-best', JSON.stringify(data));
+          populateLevelSelect();
+        }
+      } catch (e) {
+        // localStorage unavailable
+      }
+    }
+
+    /* ==========================================================================
+       K5: 悔棋、重來、換關 (無次數限制，終局亦可悔棋)
+       ========================================================================== */
+    function undoMove() {
+      if (isAnimating) return;
+      if (!history || history.length === 0) {
+        showToast('已經回到開局囉！');
+        return;
+      }
+      gameEpoch++;
+      board = history.pop();
+      moveCount--;
+      isGameOver = false;
+      clearSelection();
+      const modal = document.getElementById('result-modal');
+      if (modal) modal.style.display = 'none';
+      syncPegs();
+      updateStatusUI();
+      showToast('已悔一步 ↩️');
+    }
+
+    /* ==========================================================================
+       K6: 智慧提示引擎 (兩階段 DFS + 記憶化搜尋)
+       ========================================================================== */
+    function applyHintMove(move, msg) {
+      selectPeg(move.from.r, move.from.c);
+      const targetDisc = validMoveMeshes.find(d => d.userData.move && d.userData.move.to.r === move.to.r && d.userData.move.to.c === move.to.c);
+      if (targetDisc) {
+        targetDisc.material = hintLandingMat;
+      }
+      hintVisible = true;
+      later(() => {
+        hintVisible = false;
+      }, 3000);
+      showToast(msg);
+    }
+
+    function showHint() {
+      if (isAnimating || isGameOver) return;
+      document.body.style.cursor = 'wait';
+
+      try {
+        hintCount++;
+        const goal = KM_LEVELS[levelIndex].goal;
+        let res = kmFindHint(board, goal, true, 1500);
+        let msg = '💡 試試看這顆往這裡跳！';
+
+        if (res.status === 'unsolvable') {
+          res = kmFindHint(board, goal, false, 1500);
+          if (res.status === 'ok') {
+            msg = '停在正中央已經不可能了，但還有機會只剩一顆！';
+          } else if (res.status === 'unsolvable') {
+            showToast('這個局面已經沒辦法只剩一顆了，按悔棋退回去試試！');
+            return;
+          }
+        }
+
+        if (res.status === 'timeout') {
+          showToast('這一步太複雜了，阿喵也想不出來，先自己試試看！');
+          return;
+        }
+
+        if (res.status === 'ok' && res.move) {
+          applyHintMove(res.move, msg);
+        }
+      } finally {
+        document.body.style.cursor = 'default';
+      }
+    }
+
+    function updateStatusUI() {
+      const remaining = board ? kmCountPegs(board) : 0;
+      const el = document.getElementById('status-bar');
+      if (el) {
+        el.innerText = `剩下 ${remaining} 顆 ・ 第 ${moveCount} 步 ・ 目標：最後一顆停在金色圓圈`;
+      }
+    }
+
+    function onSelectLevel(i) {
+      startLevel(i);
+    }
+
+    function openRules() {
+      document.getElementById('rules-modal').style.display = 'flex';
+    }
+
+    function closeRules() {
+      document.getElementById('rules-modal').style.display = 'none';
+    }
+
+    function closeResultAndUndo() {
+      document.getElementById('result-modal').style.display = 'none';
+      undoMove();
+    }
+
+    function nextLevel() {
+      document.getElementById('result-modal').style.display = 'none';
+      if (levelIndex < KM_LEVELS.length - 1) {
+        startLevel(levelIndex + 1);
+        const sel = document.getElementById('level-select');
+        if (sel) sel.value = levelIndex;
+      }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const btn = document.getElementById('btn-sound');
+      if (btn) {
+        btn.innerText = audioEnabled ? '🔊 音效' : '🔇 靜音';
+        btn.classList.toggle('active', audioEnabled);
+      }
+      showToast(audioEnabled ? '音效已開啟 🔊' : '音效已靜音 🔇');
+    }
+
+    let toastTimer = null;
+    function showToast(text, durationMs = 2400) {
+      const toast = document.getElementById('toast-box');
+      if (!toast) return;
+      toast.innerText = text;
+      toast.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.style.display = 'none';
+      }, durationMs);
+    }
+
+    function populateLevelSelect() {
+      const sel = document.getElementById('level-select');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = '';
+      KM_LEVELS.forEach((lvl, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        const stars = getBestStars(idx);
+        opt.innerText = lvl.name + (stars > 0 ? ' ' + '⭐'.repeat(stars) : '');
+        sel.appendChild(opt);
+      });
+      if (cur !== '') sel.value = cur;
+    }
+
+    // 啟動入口
+    window.addEventListener('DOMContentLoaded', () => {
+      // T04：檢查環境
+      (function checkEnv() {
+        const screen = document.getElementById('load-screen');
+        const msg = document.getElementById('load-msg');
+        if (typeof THREE === 'undefined' || typeof startRenderLoop === 'undefined') {
+          msg.textContent = '😿 遊戲無法載入，請重新整理頁面或告訴老師';
+          return;
+        }
+        const c = document.createElement('canvas');
+        if (!c.getContext('webgl') && !c.getContext('experimental-webgl')) {
+          msg.textContent = '😿 這台電腦不支援 3D 顯示，請告訴老師';
+          return;
+        }
+        screen.style.display = 'none';
+      })();
+
+      initThreeScene();
+      build3DBoard();
+      populateLevelSelect();
+      startLevel(0);
+    });
+  </script>
+</body>
+</html>
