@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D 翻轉黑白棋 (Reversi 3D) - 阿喵老師的棋藝教室</title>
+  
+  <!-- Three.js, OrbitControls & Canvas Confetti -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #10b981;
+      --primary-dark: #059669;
+      --accent: #f59e0b;
+      --bg-dark: #0f172a;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --border-color: rgba(255, 255, 255, 0.12);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #canvas-container, #canvas-container canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    /* 頂部控制面板 (Top Navbar) */
+    .top-bar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .brand-pill {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 7px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      pointer-events: auto;
+    }
+
+    .brand-icon {
+      font-size: 20px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #fef08a 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn-pill {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 7px 14px;
+      min-height: 44px;
+      box-sizing: border-box;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-pill:hover {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: rgba(245, 158, 11, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-pill.active {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-color: #34d399;
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+    }
+
+    /* 頂部中央計分與回合狀態條 (Score & Turn HUD) */
+    .hud-container {
+      position: absolute;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      pointer-events: none;
+    }
+
+    .scoreboard {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      pointer-events: auto;
+    }
+
+    .score-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .disc-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    }
+
+    .disc-black {
+      background: radial-gradient(circle at 35% 35%, #4b5563, #111827);
+      border: 1.5px solid #d1d5db;
+    }
+
+    .disc-white {
+      background: radial-gradient(circle at 35% 35%, #ffffff, #d1d5db);
+      border: 1.5px solid #6b7280;
+    }
+
+    .score-num {
+      font-size: 20px;
+      font-weight: 800;
+      min-width: 26px;
+    }
+
+    .turn-badge {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fef08a;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      animation: pulseGlow 2s infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.2); }
+      50% { box-shadow: 0 0 16px rgba(245, 158, 11, 0.5); }
+    }
+
+    /* 底部操作快捷列 (Bottom Floating Dock) */
+    .bottom-dock {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 6px 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      pointer-events: auto;
+    }
+
+    .dock-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      padding: 6px 12px;
+      min-height: 44px;
+      box-sizing: border-box;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .dock-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fef08a;
+    }
+
+    /* 浮動提示與警示 (Toast Alert) */
+    .toast-box {
+      position: absolute;
+      top: 130px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: #fef08a;
+      padding: 10px 24px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      display: none;
+      z-index: 50;
+      animation: fadeInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translate(-50%, -12px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* 規則與勝利彈窗 (Modal Overlays) */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .modal-card {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 28px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+
+    .modal-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #fef08a, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .modal-content {
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #cbd5e1;
+      margin-bottom: 24px;
+    }
+
+    .modal-content strong {
+      color: #fef08a;
+    }
+
+    .rule-bullet {
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border: none;
+      color: #ffffff;
+      padding: 12px 28px;
+      min-height: 44px;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+    }
+
+    /* 響應式優化 (Mobile & Tablet) */
+    @media (max-width: 640px) {
+      .top-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+      .brand-pill { justify-content: center; }
+      .top-actions { justify-content: center; flex-wrap: wrap; }
+      .hud-container { top: 124px; }
+      .bottom-dock { width: 92%; justify-content: space-around; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- T04：載入遮罩，預設顯示；主程式確認 THREE 與 WebGL 正常後隱藏 -->
+  <div id="load-screen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1e293b;color:#fff;font-family:sans-serif;font-size:1.1rem;gap:1rem;">
+    <div id="load-msg">⏳ 遊戲載入中…</div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <!-- 頂部控制面板 -->
+  <div class="top-bar">
+    <div class="brand-pill">
+      <span class="brand-icon">🐾</span>
+      <span class="brand-title">阿喵老師的黑白棋教室</span>
+    </div>
+
+    <div class="top-actions">
+      <!-- 盤面切換 -->
+      <button class="btn-pill active" id="btn-mode-8x8" onclick="switchBoardMode('8x8')">🌟 8×8 標準盤</button>
+      <button class="btn-pill" id="btn-mode-6x6" onclick="switchBoardMode('6x6')">⚡ 6×6 快速盤</button>
+
+      <!-- 難度切換 -->
+      <button class="btn-pill" id="btn-diff" onclick="cycleDifficulty()">⭐ 幼幼貓</button>
+      <button class="btn-pill" id="btn-sound" onclick="toggleAudio()">🔊 音效</button>
+      <button class="btn-pill" onclick="openRules()">📖 規則</button>
+    </div>
+  </div>
+
+  <!-- 頂部比分與回合 HUD -->
+  <div class="hud-container">
+    <div class="scoreboard">
+      <div class="score-item">
+        <span class="disc-icon disc-black"></span>
+        <span>你 (黑)：</span>
+        <span class="score-num" id="score-black">2</span>
+      </div>
+
+      <div class="turn-badge" id="turn-indicator">
+        <span>🐾 你的回合</span>
+      </div>
+
+      <div class="score-item">
+        <span class="disc-icon disc-white"></span>
+        <span>阿喵 (白)：</span>
+        <span class="score-num" id="score-white">2</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 浮動提示框 -->
+  <div class="toast-box" id="toast-box">提示文字</div>
+
+  <!-- 底部快捷控制列 -->
+  <div class="bottom-dock">
+    <button class="dock-btn" onclick="resetGame()">🔄 重新開局</button>
+    <button class="dock-btn" onclick="undoMove()">↩ 悔棋一回合</button>
+    <button class="dock-btn" onclick="toggleHints()" id="btn-hint">💡 翻子提示: 開</button>
+    <button class="dock-btn" onclick="resetCameraView()">🎥 視角重設</button>
+  </div>
+
+  <!-- 規則手冊彈窗 -->
+  <div class="modal-overlay" id="rules-modal">
+    <div class="modal-card">
+      <div class="modal-title">📖 黑白棋（奧賽羅）快速手冊</div>
+      <div class="modal-content">
+        <div class="rule-bullet">
+          <span>🎯</span>
+          <div><strong>夾棋翻面</strong>：橫、豎、斜八個方向，只要你下的棋子和場上另一顆自己的棋子把對手的棋子「包夾在中間」，被夾住的棋子就會<strong>全部翻轉</strong>變成你的顏色！</div>
+        </div>
+        <div class="rule-bullet">
+          <span>⭐</span>
+          <div><strong>落點條件</strong>：下的那一顆子，必須至少能翻轉對手的一顆棋子，否則不能隨便下！</div>
+        </div>
+        <div class="rule-bullet">
+          <span>🏆</span>
+          <div><strong>四角必爭</strong>：棋盤的「四個角落」一旦佔領就<strong>絕對不會被翻走</strong>，是邁向勝利的超級關鍵據點！</div>
+        </div>
+        <div class="rule-bullet">
+          <span>🛑</span>
+          <div><strong>Pass跳過與獲勝</strong>：無處可下時會自動跳過。當棋盤填滿或雙方都無步可走時結算，棋子數量多的人獲勝！</div>
+        </div>
+      </div>
+      <button class="btn-action" onclick="closeRules()">我知道了，開始挑戰！</button>
+    </div>
+  </div>
+
+  <!-- 終局勝利彈窗 -->
+  <div class="modal-overlay" id="victory-modal">
+    <div class="modal-card">
+      <div class="modal-title" id="victory-title">🎉 恭喜獲勝！</div>
+      <div class="modal-content" style="text-align: center;">
+        <p id="victory-msg" style="font-size: 16px; margin-bottom: 12px;">你成功戰勝了阿喵老師！</p>
+        <div style="font-size: 26px; font-weight: 800; color: #fef08a; margin-bottom: 8px;" id="victory-scores">
+          ⚫ 42 : ⚪ 22
+        </div>
+        <p style="color: #94a3b8; font-size: 13px;">下課前再來一盤刺激的對弈吧！</p>
+      </div>
+      <button class="btn-action" onclick="closeVictoryAndRestart()">再玩一局 🐾</button>
+    </div>
+  </div>
+
+  <!-- 五款遊戲共用的程式 (局號、資源釋放、有變化才重繪) -->
+  <script src="../common.js"></script>
+  <script>
+    /* ==========================================================================
+       1. 遊戲常數與狀態定義 (Game State)
+       ========================================================================== */
+    const BLACK = 1; // 玩家 (黑子先手)
+    const WHITE = 2; // 電腦阿喵 (白子後手)
+    const EMPTY = 0;
+
+    let currentMode = '8x8'; // '8x8' 或 '6x6'
+    let boardSize = 8;
+    let boardState = [];
+    let currentTurn = BLACK;
+    let isGameOver = false;
+    let isAnimating = false;
+    let showFlipHints = true;
+    let audioEnabled = true;
+
+    // 難度設定 (1: 幼幼貓, 2: 戰術阿喵, 3: 棋聖老喵)
+    let aiDifficulty = 1; 
+    const DIFFICULTY_NAMES = ['⭐ 幼幼貓', '⭐⭐ 戰術阿喵', '⭐⭐⭐ 棋聖老喵'];
+
+    // 悔棋歷史紀錄
+    let moveHistory = [];
+    // gameEpoch、later() 定義在 common.js
+    // fireConfetti() 定義在 common.js
+
+    // 3D 渲染物件參照
+    let scene, camera, renderer, controls;
+    let boardGroup, boardTiles = [], pieceMeshes = [];
+    let hintMeshes = [];
+    let raycaster = new THREE.Raycaster();
+    let mouse = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+
+    // 棋盤尺寸與物理高度常數 (統一基準，徹底根絕破面與懸空)
+    const CELL_SIZE = 1.35;
+    const PIECE_Y = 0.14;   // 棋子靜止高度 (厚度 0.16 落在 y=0.06 呢絨表面)
+    const HINT_Y = 0.075;   // 金色提示盤懸浮高度
+
+    // 8 個翻棋搜尋方向 (N, S, E, W, NW, NE, SW, SE)
+    const DIRECTIONS = [
+      [-1,  0], [ 1,  0], [ 0, -1], [ 0,  1],
+      [-1, -1], [-1,  1], [ 1, -1], [ 1,  1]
+    ];
+
+    /* ==========================================================================
+       2. Web Audio API 純程式擬真音效合成引擎 (免外部音效檔，零破圖零卡頓)
+       ========================================================================== */
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type, pitchMultiplier = 1.0) {
+      if (!audioEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'drop') {
+        // 清脆木質敲擊落子聲 (短促衰減)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320 * pitchMultiplier, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      } 
+      else if (type === 'flip') {
+        // 骨牌連鎖翻面高頻玉石聲 (琶音階梯遞增)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        const baseFreq = 480 * pitchMultiplier;
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.07);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+      else if (type === 'corner') {
+        // 奪取四個超級角落的特殊金屬重音
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.04);
+          gain.gain.setValueAtTime(0.3, now + i * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35 + i * 0.04);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + i * 0.04);
+          osc.stop(now + 0.4);
+        });
+      }
+      else if (type === 'pass') {
+        // Pass 溫和提示雙音
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(349.23, now + 0.12);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+      else if (type === 'win') {
+        // 勝利歡呼和弦 (Do-Mi-Sol-HighDo)
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+          gain.gain.setValueAtTime(0.35, now + idx * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5 + idx * 0.09);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.09);
+          osc.stop(now + 0.6 + idx * 0.09);
+        });
+      }
+    }
+
+    /* ==========================================================================
+       3. Three.js 3D 場景建構與專業影音燈光 (無閃爍、無破面、柔光護眼)
+       ========================================================================== */
+    function initThreeScene() {
+      const container = document.getElementById('canvas-container');
+
+      // 建立場景
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0f1d); // 高級深藍曜黑夜幕
+      scene.fog = new THREE.FogExp2(0x0a0f1d, 0.022);
+
+      // 攝影機
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      resetCameraView();
+
+      // 渲染器 (啟用對數深度緩衝 logarithmicDepthBuffer，消除任何亞毫米級 Z-fighting 與邊緣閃爍)
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        logarithmicDepthBuffer: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      container.appendChild(renderer.domElement);
+
+      // 軌道控制器
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.maxPolarAngle = Math.PI / 2.15; // 防止穿透桌面
+      controls.minDistance = 6;
+      controls.maxDistance = 28;
+
+      // 燈光設置：暖陽主光 + 柔和環境天光 + 藍調側緣輪廓光 + 暖金補光
+      const ambientLight = new THREE.AmbientLight(0xfffbeb, 0.42);
+      scene.add(ambientLight);
+
+      // 暖陽主光 (具有緊密精準的陰影正交投影盒，徹底杜絕陰影邊緣抖動與破圖)
+      const mainSun = new THREE.DirectionalLight(0xfffaed, 1.15);
+      mainSun.position.set(10, 22, 12);
+      mainSun.castShadow = true;
+      mainSun.shadow.mapSize.width = 1024;
+      mainSun.shadow.mapSize.height = 1024;
+      mainSun.shadow.camera.left = -9;
+      mainSun.shadow.camera.right = 9;
+      mainSun.shadow.camera.top = 9;
+      mainSun.shadow.camera.bottom = -9;
+      mainSun.shadow.camera.near = 2;
+      mainSun.shadow.camera.far = 45;
+      mainSun.shadow.bias = -0.0001;
+      mainSun.shadow.normalBias = 0.04;
+      scene.add(mainSun);
+
+      // 側邊藍調邊緣輪廓光 (Rim Light - 突顯金屬腰線與實木立體邊框)
+      const rimLight = new THREE.DirectionalLight(0x60a5fa, 0.38);
+      rimLight.position.set(-14, 16, -12);
+      scene.add(rimLight);
+
+      // 前方暖色微光 (Front Fill Light - 柔化正前方面光，避免木材暗角死黑)
+      const frontFill = new THREE.DirectionalLight(0xfef08a, 0.22);
+      frontFill.position.set(0, 8, 16);
+      scene.add(frontFill);
+
+      // 事件監聽
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('pointerdown', (e) => {
+        pointerDownPos.x = e.clientX;
+        pointerDownPos.y = e.clientY;
+      });
+      renderer.domElement.addEventListener('pointerup', onPointerUp);
+
+      // 啟動主渲染迴圈
+      animate();
+    }
+
+    function resetCameraView() {
+      if (currentMode === '6x6') {
+        camera.position.set(0, 15, 11.5);
+      } else {
+        camera.position.set(0, 18, 13.8);
+      }
+      camera.lookAt(0, 0, 0);
+      if (controls) {
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    /* ==========================================================================
+       4. 純程式高解析度程序化材質生成 (Procedural Textures)
+       ========================================================================== */
+    let cachedWoodTexture = null;
+
+    // 1. 黑胡桃實木琴漆木紋 (Dark Walnut Piano Lacquer Texture)
+    function getProceduralWoodTexture() {
+      if (cachedWoodTexture) return cachedWoodTexture;
+
+      const w = 512, h = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#22120a';
+      ctx.fillRect(0, 0, w, h);
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+
+          // 雙波多頻正弦年輪與木質細纖維擾動
+          const wave = Math.sin(x * 0.045 + Math.sin(y * 0.016) * 3.8 + Math.sin((x + y) * 0.02) * 1.8);
+          const fine = Math.sin(x * 0.28 + Math.cos(y * 0.06) * 1.4) * 0.18;
+          const v = Math.max(0, Math.min(1, 0.5 + wave * 0.42 + fine));
+
+          // 混合濃郁黑胡桃棕 (#24130b) 與溫潤紅木金絲琥珀 (#4c2616)
+          const r = 32 + v * 44;
+          const g = 17 + v * 24;
+          const b = 10 + v * 14;
+
+          data[idx]     = Math.round(r);
+          data[idx + 1] = Math.round(g);
+          data[idx + 2] = Math.round(b);
+          data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      cachedWoodTexture = markShared(new THREE.CanvasTexture(canvas));
+      cachedWoodTexture.wrapS = THREE.RepeatWrapping;
+      cachedWoodTexture.wrapT = THREE.RepeatWrapping;
+      cachedWoodTexture.repeat.set(2, 2);
+      cachedWoodTexture.anisotropy = 8;
+      return cachedWoodTexture;
+    }
+
+    // 2. 皇家祖母綠賽事羊毛氈呢絨 (Tournament Emerald Felt with Inlaid Gold Grid)
+    function createProceduralFeltTexture(boardCells) {
+      const size = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // 祖母綠羊毛氈漸層基底 (中心溫潤護眼，邊緣微暗角增加立體景深)
+      const grad = ctx.createRadialGradient(size/2, size/2, size * 0.1, size/2, size/2, size * 0.72);
+      grad.addColorStop(0, '#155e2e'); // 中心亮綠
+      grad.addColorStop(0.75, '#0e4622'); // 經典深祖母綠
+      grad.addColorStop(1, '#082f16'); // 邊緣深邃暗角
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+
+      // 羊毛微纖維編織噪點 (細膩觸感)
+      const imgData = ctx.getImageData(0, 0, size, size);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 16;
+        data[i]     = Math.min(255, Math.max(0, data[i] + noise * 0.6));
+        data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
+        data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise * 0.7));
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      // 燙金凹凸格線 (Embossed Gold Grid Lines)
+      const step = size / boardCells;
+      ctx.lineWidth = 2.5;
+
+      for (let i = 1; i < boardCells; i++) {
+        const pos = Math.round(i * step);
+
+        // 凹槽陰影線 (Inner Shadow)
+        ctx.strokeStyle = 'rgba(4, 24, 12, 0.7)';
+        ctx.beginPath();
+        ctx.moveTo(pos + 1.5, 0); ctx.lineTo(pos + 1.5, size);
+        ctx.moveTo(0, pos + 1.5); ctx.lineTo(size, pos + 1.5);
+        ctx.stroke();
+
+        // 燙金線條 (Inlaid Gold)
+        ctx.strokeStyle = 'rgba(212, 175, 55, 0.8)';
+        ctx.beginPath();
+        ctx.moveTo(pos, 0); ctx.lineTo(pos, size);
+        ctx.moveTo(0, pos); ctx.lineTo(size, pos);
+        ctx.stroke();
+
+        // 高光反光細線
+        ctx.strokeStyle = 'rgba(254, 240, 138, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pos - 0.5, 0); ctx.lineTo(pos - 0.5, size);
+        ctx.moveTo(0, pos - 0.5); ctx.lineTo(size, pos - 0.5);
+        ctx.stroke();
+        ctx.lineWidth = 2.5;
+      }
+
+      // 外緣燙金飾框
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.9)';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(3, 3, size - 6, size - 6);
+
+      // 燙金星位鉚釘 (Inlaid Brass Star Points)
+      if (boardCells === 8) {
+        const starCoords = [[2, 2], [2, 6], [6, 2], [6, 6]];
+        starCoords.forEach(([r, c]) => {
+          const cx = c * step;
+          const cy = r * step;
+
+          // 陰影
+          ctx.fillStyle = 'rgba(4, 24, 12, 0.85)';
+          ctx.beginPath();
+          ctx.arc(cx, cy, 7.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 金屬高光星位
+          const starGrad = ctx.createRadialGradient(cx - 2, cy - 2, 1, cx, cy, 6.5);
+          starGrad.addColorStop(0, '#fef08a');
+          starGrad.addColorStop(0.5, '#eab308');
+          starGrad.addColorStop(1, '#b45309');
+          ctx.fillStyle = starGrad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.anisotropy = 8;
+      return texture;
+    }
+
+    // 3. 邊框金箔燙印座標標籤 (Laser-engraved Gold Coordinates)
+    function createCoordinateLabelTexture(type, boardCells) {
+      const isHoriz = (type === 'horizontal');
+      const w = isHoriz ? 1024 : 128;
+      const h = isHoriz ? 128 : 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.font = "bold 52px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      const step = (isHoriz ? w : h) / boardCells;
+
+      for (let i = 0; i < boardCells; i++) {
+        const text = isHoriz ? letters[i] : String(i + 1);
+        const cx = isHoriz ? (i + 0.5) * step : w / 2;
+        const cy = isHoriz ? h / 2 : (i + 0.5) * step;
+
+        // 浮雕陰影
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillText(text, cx + 2, cy + 2);
+
+        // 金箔主色
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(text, cx, cy);
+
+        // 頂部高光
+        ctx.fillStyle = '#fef08a';
+        ctx.fillText(text, cx - 1, cy - 1);
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.anisotropy = 4;
+      return texture;
+    }
+
+    /* ==========================================================================
+       5. 3D 棋盤架構 (立體多層次實木托盤 + 零破面嵌合 + 復古黃銅包角)
+       ========================================================================== */
+    function build3DBoard() {
+      if (boardGroup) removeAndDispose(boardGroup, scene);
+      boardGroup = new THREE.Group();
+      boardTiles = [];
+
+      const boardWidth = boardSize * CELL_SIZE;
+      const borderWidth = 1.15;
+      const totalWidth = boardWidth + 2 * borderWidth;
+
+      // 木質琴漆材質
+      const woodTex = getProceduralWoodTexture();
+      const woodMat = new THREE.MeshStandardMaterial({
+        map: woodTex,
+        roughness: 0.36,
+        metalness: 0.05
+      });
+
+      // 復古黃銅金屬材質 (用於飾條與四角包邊包角)
+      const brassMat = new THREE.MeshStandardMaterial({
+        color: 0xd4af37,
+        roughness: 0.22,
+        metalness: 0.85
+      });
+
+      // 1. 厚實黑胡桃實木底座 (Base Plinth: y = -0.50 ~ y = 0.00)
+      const baseGeo = new THREE.BoxGeometry(totalWidth, 0.5, totalWidth);
+      const baseMesh = new THREE.Mesh(baseGeo, woodMat);
+      baseMesh.position.set(0, -0.25, 0);
+      baseMesh.receiveShadow = true;
+      boardGroup.add(baseMesh);
+
+      // 2. 凸起實木托盤外邊框 (4 條獨立實木圍欄，圍成精確尺寸的內凹托盤，無任何重疊破面)
+      const rimHeight = 0.14; // y = 0.00 ~ y = 0.14
+      const rimY = 0.07;
+
+      // 北側圍欄 (North Rim)
+      const northRimGeo = new THREE.BoxGeometry(totalWidth, rimHeight, borderWidth);
+      const northRim = new THREE.Mesh(northRimGeo, woodMat);
+      northRim.position.set(0, rimY, -(boardWidth / 2 + borderWidth / 2));
+      northRim.castShadow = true;
+      northRim.receiveShadow = true;
+      boardGroup.add(northRim);
+
+      // 南側圍欄 (South Rim)
+      const southRimGeo = new THREE.BoxGeometry(totalWidth, rimHeight, borderWidth);
+      const southRim = new THREE.Mesh(southRimGeo, woodMat);
+      southRim.position.set(0, rimY, +(boardWidth / 2 + borderWidth / 2));
+      southRim.castShadow = true;
+      southRim.receiveShadow = true;
+      boardGroup.add(southRim);
+
+      // 西側圍欄 (West Rim)
+      const westRimGeo = new THREE.BoxGeometry(borderWidth, rimHeight, boardWidth);
+      const westRim = new THREE.Mesh(westRimGeo, woodMat);
+      westRim.position.set(-(boardWidth / 2 + borderWidth / 2), rimY, 0);
+      westRim.castShadow = true;
+      westRim.receiveShadow = true;
+      boardGroup.add(westRim);
+
+      // 東側圍欄 (East Rim)
+      const eastRimGeo = new THREE.BoxGeometry(borderWidth, rimHeight, boardWidth);
+      const eastRim = new THREE.Mesh(eastRimGeo, woodMat);
+      eastRim.position.set(+(boardWidth / 2 + borderWidth / 2), rimY, 0);
+      eastRim.castShadow = true;
+      eastRim.receiveShadow = true;
+      boardGroup.add(eastRim);
+
+      // 3. 內嵌金色黃銅飾條 (Inner Brass Trim Lining: y = 0.00 ~ y = 0.12)
+      const trimThick = 0.05;
+      const trimH = 0.12;
+      const trimY = 0.06;
+
+      const nTrim = new THREE.Mesh(new THREE.BoxGeometry(boardWidth, trimH, trimThick), brassMat);
+      nTrim.position.set(0, trimY, -(boardWidth / 2 - trimThick / 2));
+      boardGroup.add(nTrim);
+
+      const sTrim = new THREE.Mesh(new THREE.BoxGeometry(boardWidth, trimH, trimThick), brassMat);
+      sTrim.position.set(0, trimY, +(boardWidth / 2 - trimThick / 2));
+      boardGroup.add(sTrim);
+
+      const wTrim = new THREE.Mesh(new THREE.BoxGeometry(trimThick, trimH, boardWidth - trimThick * 2), brassMat);
+      wTrim.position.set(-(boardWidth / 2 - trimThick / 2), trimY, 0);
+      boardGroup.add(wTrim);
+
+      const eTrim = new THREE.Mesh(new THREE.BoxGeometry(trimThick, trimH, boardWidth - trimThick * 2), brassMat);
+      eTrim.position.set(+(boardWidth / 2 - trimThick / 2), trimY, 0);
+      boardGroup.add(eTrim);
+
+      // 4. 四個外角復古黃銅包角金屬護片 + 鉚釘 (Vintage Brass Corner Brackets & Rivets)
+      const cornerBracketGeo = new THREE.BoxGeometry(0.72, 0.02, 0.72);
+      const rivetGeo = new THREE.SphereGeometry(0.045, 12, 12);
+      const cornerOffsets = [
+        [-1, -1], [1, -1], [-1, 1], [1, 1]
+      ];
+
+      cornerOffsets.forEach(([sx, sz]) => {
+        const cx = sx * (totalWidth / 2 - 0.42);
+        const cz = sz * (totalWidth / 2 - 0.42);
+
+        // L型護片
+        const bracket = new THREE.Mesh(cornerBracketGeo, brassMat);
+        bracket.position.set(cx, 0.142, cz);
+        boardGroup.add(bracket);
+
+        // 3 顆精緻立體圓頭金屬鉚釘
+        const rivets = [
+          [cx - sx * 0.18, cz - sz * 0.18],
+          [cx + sx * 0.18, cz - sz * 0.18],
+          [cx - sx * 0.18, cz + sz * 0.18]
+        ];
+        rivets.forEach(([rx, rz]) => {
+          const rivet = new THREE.Mesh(rivetGeo, brassMat);
+          rivet.position.set(rx, 0.156, rz);
+          boardGroup.add(rivet);
+        });
+      });
+
+      // 5. 無接縫單片完整賽事祖母綠呢絨底板 (Seamless Tournament Felt Mat: y = 0.00 ~ y = 0.06)
+      const feltTex = createProceduralFeltTexture(boardSize);
+      const feltMat = new THREE.MeshStandardMaterial({
+        map: feltTex,
+        roughness: 0.88,
+        metalness: 0.02
+      });
+      const feltGeo = new THREE.BoxGeometry(boardWidth, 0.06, boardWidth);
+      const feltMesh = new THREE.Mesh(feltGeo, feltMat);
+      feltMesh.position.set(0, 0.03, 0); // 表面精確落在 y = 0.06，外圍圍欄高出 0.08，形成典雅下凹托盤！
+      feltMesh.receiveShadow = true;
+      boardGroup.add(feltMesh);
+
+      // 6. 圍欄金箔燙印座標板 (A-H / 1-8 刻度系統)
+      const horizCoordTex = createCoordinateLabelTexture('horizontal', boardSize);
+      const vertCoordTex = createCoordinateLabelTexture('vertical', boardSize);
+
+      // 南側 A-H
+      const sCoordMat = new THREE.MeshBasicMaterial({ map: horizCoordTex, transparent: true });
+      const sCoordPlane = new THREE.Mesh(new THREE.PlaneGeometry(boardWidth, borderWidth * 0.6), sCoordMat);
+      sCoordPlane.rotation.x = -Math.PI / 2;
+      sCoordPlane.position.set(0, 0.142, +(boardWidth / 2 + borderWidth * 0.48));
+      boardGroup.add(sCoordPlane);
+
+      // 北側 A-H (旋轉 180 度便於對座視角)
+      const nCoordPlane = new THREE.Mesh(new THREE.PlaneGeometry(boardWidth, borderWidth * 0.6), sCoordMat);
+      nCoordPlane.rotation.x = -Math.PI / 2;
+      nCoordPlane.rotation.z = Math.PI;
+      nCoordPlane.position.set(0, 0.142, -(boardWidth / 2 + borderWidth * 0.48));
+      boardGroup.add(nCoordPlane);
+
+      // 西側 1-8
+      const wCoordMat = new THREE.MeshBasicMaterial({ map: vertCoordTex, transparent: true });
+      const wCoordPlane = new THREE.Mesh(new THREE.PlaneGeometry(borderWidth * 0.6, boardWidth), wCoordMat);
+      wCoordPlane.rotation.x = -Math.PI / 2;
+      wCoordPlane.position.set(-(boardWidth / 2 + borderWidth * 0.48), 0.142, 0);
+      boardGroup.add(wCoordPlane);
+
+      // 東側 1-8
+      const eCoordPlane = new THREE.Mesh(new THREE.PlaneGeometry(borderWidth * 0.6, boardWidth), wCoordMat);
+      eCoordPlane.rotation.x = -Math.PI / 2;
+      eCoordPlane.position.set(+(boardWidth / 2 + borderWidth * 0.48), 0.142, 0);
+      boardGroup.add(eCoordPlane);
+
+      // 7. 射線拾取網格感應板 (Invisible Raycast Sensor Planes)
+      // 零幾何破面、純透明感應，確保點擊落子 100% 靈敏精準！
+      const sensorMat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0.0,
+        depthWrite: false
+      });
+      const sensorGeo = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE);
+
+      for (let r = 0; r < boardSize; r++) {
+        for (let c = 0; c < boardSize; c++) {
+          const sensor = new THREE.Mesh(sensorGeo, sensorMat);
+          const x = (c - (boardSize - 1) / 2) * CELL_SIZE;
+          const z = (r - (boardSize - 1) / 2) * CELL_SIZE;
+          sensor.rotation.x = -Math.PI / 2;
+          sensor.position.set(x, 0.062, z);
+          sensor.userData = { r, c };
+          boardGroup.add(sensor);
+          boardTiles.push({ r, c, x, z, mesh: sensor });
+        }
+      }
+
+      scene.add(boardGroup);
+    }
+
+    /* ==========================================================================
+       6. 雙面 3D 黑白棋子工藝捏模 (黑曜金貓爪 + 象牙寶石藍貓 + 滾花金屬腰環)
+       ========================================================================== */
+    let cachedPieceMaterials = null;
+
+    function getPieceMaterials() {
+      if (cachedPieceMaterials) return cachedPieceMaterials;
+
+      // 側面滾花金屬黃金腰環 (Satin Brass / Milled Coin Edge)
+      const sideMat = new THREE.MeshStandardMaterial({
+        color: 0xd4af37,
+        roughness: 0.22,
+        metalness: 0.85
+      });
+
+      // 頂部面：黑曜玉石面 (Deep Obsidian Black + Embossed Gold Paw)
+      const blackCanvas = document.createElement('canvas');
+      blackCanvas.width = 256;
+      blackCanvas.height = 256;
+      const bCtx = blackCanvas.getContext('2d');
+
+      // 放射玉石深邃漸層
+      const bGrad = bCtx.createRadialGradient(128, 128, 15, 128, 128, 128);
+      bGrad.addColorStop(0, '#1e293b');
+      bGrad.addColorStop(0.75, '#0f172a');
+      bGrad.addColorStop(1, '#020617');
+      bCtx.fillStyle = bGrad;
+      bCtx.fillRect(0, 0, 256, 256);
+
+      // 外緣金箔飾線
+      bCtx.strokeStyle = 'rgba(212, 175, 55, 0.85)';
+      bCtx.lineWidth = 5;
+      bCtx.beginPath();
+      bCtx.arc(128, 128, 120, 0, Math.PI * 2);
+      bCtx.stroke();
+
+      // 金箔質感貓肉球金印 (Embossed Gold Foil Cat Paw)
+      const pawGrad = bCtx.createRadialGradient(128, 142, 10, 128, 152, 60);
+      pawGrad.addColorStop(0, '#fef08a');
+      pawGrad.addColorStop(0.65, '#f59e0b');
+      pawGrad.addColorStop(1, '#b45309');
+      bCtx.fillStyle = pawGrad;
+
+      // 主掌球
+      bCtx.beginPath();
+      bCtx.arc(128, 152, 44, 0, Math.PI * 2);
+      // 四個小肉球
+      bCtx.arc(84, 88, 20, 0, Math.PI * 2);
+      bCtx.arc(128, 68, 20, 0, Math.PI * 2);
+      bCtx.arc(172, 88, 20, 0, Math.PI * 2);
+      bCtx.fill();
+
+      const blackTex = new THREE.CanvasTexture(blackCanvas);
+      blackTex.anisotropy = 8;
+      const topBlackMat = new THREE.MeshStandardMaterial({
+        map: blackTex,
+        roughness: 0.22,
+        metalness: 0.18
+      });
+
+      // 底部面：象牙純白面 (Polished Pearlescent Ivory White + Sapphire Mascot)
+      const whiteCanvas = document.createElement('canvas');
+      whiteCanvas.width = 256;
+      whiteCanvas.height = 256;
+      const wCtx = whiteCanvas.getContext('2d');
+
+      // 象牙珠光漸層
+      const wGrad = wCtx.createRadialGradient(128, 128, 15, 128, 128, 128);
+      wGrad.addColorStop(0, '#ffffff');
+      wGrad.addColorStop(0.75, '#f1f5f9');
+      wGrad.addColorStop(1, '#cbd5e1');
+      wCtx.fillStyle = wGrad;
+      wCtx.fillRect(0, 0, 256, 256);
+
+      // 外緣金箔飾線
+      wCtx.strokeStyle = 'rgba(212, 175, 55, 0.7)';
+      wCtx.lineWidth = 5;
+      wCtx.beginPath();
+      wCtx.arc(128, 128, 120, 0, Math.PI * 2);
+      wCtx.stroke();
+
+      // 寶石湛藍小貓頭輪廓印記
+      const catGrad = wCtx.createRadialGradient(128, 136, 10, 128, 136, 60);
+      catGrad.addColorStop(0, '#60a5fa');
+      catGrad.addColorStop(0.7, '#2563eb');
+      catGrad.addColorStop(1, '#1d4ed8');
+      wCtx.fillStyle = catGrad;
+
+      // 貓臉型
+      wCtx.beginPath();
+      wCtx.arc(128, 136, 52, 0, Math.PI * 2);
+      wCtx.fill();
+
+      // 貓耳
+      wCtx.beginPath();
+      wCtx.moveTo(80, 100); wCtx.lineTo(96, 48); wCtx.lineTo(120, 92); wCtx.fill();
+      wCtx.beginPath();
+      wCtx.moveTo(176, 100); wCtx.lineTo(160, 48); wCtx.lineTo(136, 92); wCtx.fill();
+
+      const whiteTex = new THREE.CanvasTexture(whiteCanvas);
+      whiteTex.anisotropy = 8;
+      const bottomWhiteMat = new THREE.MeshStandardMaterial({
+        map: whiteTex,
+        roughness: 0.20,
+        metalness: 0.12
+      });
+
+      cachedPieceMaterials = [sideMat, topBlackMat, bottomWhiteMat];
+      markShared(cachedPieceMaterials, cachedPieceMaterials.map(m => m.map)); // 所有棋子共用，不可釋放
+      return cachedPieceMaterials;
+    }
+
+    function createPieceMesh3D(colorType) {
+      const group = new THREE.Group();
+
+      const radius = 0.48;
+      const height = 0.16;
+
+      const materials = getPieceMaterials();
+      const discGeo = new THREE.CylinderGeometry(radius, radius, height, 32);
+      const discMesh = new THREE.Mesh(discGeo, materials);
+      discMesh.castShadow = true;
+      discMesh.receiveShadow = true;
+      group.add(discMesh);
+
+      // 當 colorType === BLACK 時，黑面向上 (rotation.x = 0)
+      // 當 colorType === WHITE 時，白面向上 (rotation.x = Math.PI)
+      group.rotation.x = (colorType === WHITE) ? Math.PI : 0;
+      group.position.y = PIECE_Y;
+
+      group.userData = { discMesh, currentColor: colorType };
+      return group;
+    }
+    /* ==========================================================================
+       6. 棋局核心邏輯 (Legal Moves, Cascading Flips, Pass & Win)
+       ========================================================================== */
+    function initGameBoard() {
+      gameEpoch++;
+      boardState = Array.from({ length: boardSize }, () => Array(boardSize).fill(EMPTY));
+      
+      // 開局中央四子交叉配置
+      const mid = boardSize / 2;
+      boardState[mid - 1][mid - 1] = WHITE;
+      boardState[mid - 1][mid]     = BLACK;
+      boardState[mid][mid - 1]     = BLACK;
+      boardState[mid][mid]         = WHITE;
+
+      currentTurn = BLACK;
+      isGameOver = false;
+      isAnimating = false;
+      moveHistory = [];
+
+      syncAllPieceMeshes();
+      updateScoreboardUI();
+      updateTurnIndicatorUI();
+      refreshLegalMoveIndicators();
+    }
+
+    function syncAllPieceMeshes() {
+      // 清空舊棋子
+      pieceMeshes.forEach(mesh => removeAndDispose(mesh, scene));
+      pieceMeshes = [];
+
+      // CELL_SIZE is defined globally
+      for (let r = 0; r < boardSize; r++) {
+        for (let c = 0; c < boardSize; c++) {
+          const color = boardState[r][c];
+          if (color !== EMPTY) {
+            const mesh = createPieceMesh3D(color);
+            const x = (c - (boardSize - 1) / 2) * CELL_SIZE;
+            const z = (r - (boardSize - 1) / 2) * CELL_SIZE;
+            mesh.position.set(x, PIECE_Y, z);
+            mesh.userData.r = r;
+            mesh.userData.c = c;
+            scene.add(mesh);
+            pieceMeshes.push(mesh);
+          }
+        }
+      }
+    }
+
+    // 計算特定格子在 8 個方向能夾住翻轉的所有敵方棋子
+    function getFlippedPiecesForMove(r, c, playerColor) {
+      if (boardState[r][c] !== EMPTY) return [];
+
+      const opponentColor = (playerColor === BLACK) ? WHITE : BLACK;
+      const flipped = [];
+
+      for (const [dr, dc] of DIRECTIONS) {
+        let currR = r + dr;
+        let currC = c + dc;
+        const line = [];
+
+        // 沿此方向一路搜尋敵方棋子
+        while (currR >= 0 && currR < boardSize && currC >= 0 && currC < boardSize && boardState[currR][currC] === opponentColor) {
+          line.push({ r: currR, c: currC });
+          currR += dr;
+          currC += dc;
+        }
+
+        // 若最尾端是己方棋子，則該整排敵方棋子成立可翻轉！
+        if (line.length > 0 && currR >= 0 && currR < boardSize && currC >= 0 && currC < boardSize && boardState[currR][currC] === playerColor) {
+          flipped.push(...line);
+        }
+      }
+
+      return flipped;
+    }
+
+    // 取得指定玩家當前所有合法走步
+    function getLegalMoves(playerColor) {
+      const legalMoves = [];
+      for (let r = 0; r < boardSize; r++) {
+        for (let c = 0; c < boardSize; c++) {
+          const flipped = getFlippedPiecesForMove(r, c, playerColor);
+          if (flipped.length > 0) {
+            legalMoves.push({ r, c, flipped, flipsCount: flipped.length });
+          }
+        }
+      }
+      return legalMoves;
+    }
+
+    /* ==========================================================================
+       7. 兒童友善落點提示 (金色小光盤 + 翻子數 +N 懸浮徽章)
+       ========================================================================== */
+    function refreshLegalMoveIndicators() {
+      // 清空舊提示
+      hintMeshes.forEach(m => removeAndDispose(m, scene));
+      hintMeshes = [];
+
+      if (isGameOver || currentTurn !== BLACK) return;
+
+      const legalMoves = getLegalMoves(BLACK);
+      // CELL_SIZE is defined globally
+
+      legalMoves.forEach(m => {
+        const x = (m.c - (boardSize - 1) / 2) * CELL_SIZE;
+        const z = (m.r - (boardSize - 1) / 2) * CELL_SIZE;
+
+        // 實心金色圓盤 (Solid Raycast Target)
+        const discGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.04, 24);
+        const discMat = new THREE.MeshBasicMaterial({
+          color: 0xf59e0b,
+          transparent: true,
+          opacity: 0.45
+        });
+        const disc = new THREE.Mesh(discGeo, discMat);
+        disc.position.set(x, HINT_Y, z);
+        disc.userData = { move: m, isHintTarget: true };
+
+        // 懸浮數值標籤 (+2, +4)
+        if (showFlipHints) {
+          const badgeCanvas = document.createElement('canvas');
+          badgeCanvas.width = 64;
+          badgeCanvas.height = 64;
+          const ctx = badgeCanvas.getContext('2d');
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.arc(32, 32, 28, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+
+          ctx.font = 'bold 30px sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`+${m.flipsCount}`, 32, 34);
+
+          const badgeTex = new THREE.CanvasTexture(badgeCanvas);
+          const badgeMat = new THREE.MeshBasicMaterial({ map: badgeTex, transparent: true });
+          const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.38), badgeMat);
+          badge.rotation.x = -Math.PI / 2;
+          badge.position.set(0, 0.03, 0);
+          disc.add(badge);
+        }
+
+        scene.add(disc);
+        hintMeshes.push(disc);
+      });
+    }
+
+    /* ==========================================================================
+       8. 骨牌連鎖 3D 凌空翻轉動畫核心 (Cascading 3D Flip Animation)
+       ========================================================================== */
+    function executeMove(r, c, playerColor, onComplete) {
+      isAnimating = true;
+      hintMeshes.forEach(m => removeAndDispose(m, scene));
+      hintMeshes = [];
+
+      const flippedCoords = getFlippedPiecesForMove(r, c, playerColor);
+      if (flippedCoords.length === 0) {
+        isAnimating = false;
+        return;
+      }
+
+      // 儲存悔棋紀錄
+      const boardSnapshot = boardState.map(row => [...row]);
+      moveHistory.push({ board: boardSnapshot, turn: currentTurn, lastMove: { r, c } });
+
+      // 1. 放置新下的棋子 (帶有高空拋落入槽物理動畫)
+      boardState[r][c] = playerColor;
+      // CELL_SIZE is defined globally
+      const targetX = (c - (boardSize - 1) / 2) * CELL_SIZE;
+      const targetZ = (r - (boardSize - 1) / 2) * CELL_SIZE;
+
+      const newPieceMesh = createPieceMesh3D(playerColor);
+      newPieceMesh.position.set(targetX, 3.2, targetZ); // 從空中落下
+      newPieceMesh.userData.r = r;
+      newPieceMesh.userData.c = c;
+      scene.add(newPieceMesh);
+      pieceMeshes.push(newPieceMesh);
+
+      // 是否搶佔了傳奇四個角落！
+      const isCorner = (r === 0 || r === boardSize - 1) && (c === 0 || c === boardSize - 1);
+      if (isCorner) {
+        playSound('corner');
+        showToast('🌟 漂亮！成功奪下關鍵角落！');
+      } else {
+        playSound('drop');
+      }
+
+      // 落子下墜動畫 (Drop Animation)
+      const dropStart = performance.now();
+      const dropDur = 200;
+
+      const ep = gameEpoch;
+      function animateDrop(now) {
+        if (ep !== gameEpoch) return;
+        const progress = Math.min((now - dropStart) / dropDur, 1.0);
+        const ease = progress * (2 - progress); // easeOut
+        newPieceMesh.position.y = 3.2 - ease * (3.2 - PIECE_Y);
+
+        if (progress < 1.0) {
+          requestAnimationFrame(animateDrop);
+        } else {
+          newPieceMesh.position.y = PIECE_Y;
+          // 落子完成，啟動極致療癒的「骨牌連鎖翻面」！
+          triggerCascadingFlips(r, c, flippedCoords, playerColor, onComplete);
+        }
+      }
+      requestAnimationFrame(animateDrop);
+    }
+
+    // 依距離依序產生 50ms 連鎖波浪翻轉
+    function triggerCascadingFlips(originR, originC, flippedCoords, newColor, onAllComplete) {
+      // 根據離新落子點的歐式距離排序，呈現真實波浪漣漪
+      flippedCoords.sort((a, b) => {
+        const dA = Math.hypot(a.r - originR, a.c - originC);
+        const dB = Math.hypot(b.r - originR, b.c - originC);
+        return dA - dB;
+      });
+
+      const ep = gameEpoch;
+      let completedCount = 0;
+      const targetRotationX = (newColor === WHITE) ? Math.PI : 0;
+
+      flippedCoords.forEach((coord, idx) => {
+        // 更新盤面資料
+        boardState[coord.r][coord.c] = newColor;
+
+        const pieceMesh = pieceMeshes.find(m => m.userData.r === coord.r && m.userData.c === coord.c);
+        if (!pieceMesh) return;
+
+        const delayMs = idx * 60; // 骨牌連鎖間隔 60ms
+
+        setTimeout(() => {
+          if (ep !== gameEpoch) return;
+          // 播放琶音階梯音效 (隨著連鎖第 1, 2, 3 顆音調逐一上升！)
+          const pitchMultiplier = 1.0 + Math.min(idx * 0.12, 1.2);
+          playSound('flip', pitchMultiplier);
+
+          const flipStart = performance.now();
+          const flipDur = 260;
+          const initialRotX = pieceMesh.rotation.x;
+
+          function animateFlip(now) {
+            if (ep !== gameEpoch) return;
+            const p = Math.min((now - flipStart) / flipDur, 1.0);
+            const ease = Math.sin(p * Math.PI / 2); // easeOut
+
+            // 180° 翻轉
+            pieceMesh.rotation.x = initialRotX + (targetRotationX - initialRotX) * ease;
+            // 輕微凌空彈起弧度 (拋物線)
+            pieceMesh.position.y = PIECE_Y + Math.sin(p * Math.PI) * 0.65;
+
+            if (p < 1.0) {
+              requestAnimationFrame(animateFlip);
+            } else {
+              pieceMesh.rotation.x = targetRotationX;
+              pieceMesh.position.y = PIECE_Y;
+              pieceMesh.userData.currentColor = newColor;
+
+              completedCount++;
+              if (completedCount === flippedCoords.length) {
+                // 全部連鎖翻面結束！
+                isAnimating = false;
+                updateScoreboardUI();
+                if (onAllComplete) onAllComplete();
+                else switchTurn();
+              }
+            }
+          }
+          requestAnimationFrame(animateFlip);
+        }, delayMs);
+      });
+    }
+
+    /* ==========================================================================
+       9. 回合切換與裁判系統 (Pass 檢定與勝負終局結算)
+       ========================================================================== */
+    function switchTurn() {
+      const nextTurn = (currentTurn === BLACK) ? WHITE : BLACK;
+      const nextLegalMoves = getLegalMoves(nextTurn);
+
+      if (nextLegalMoves.length > 0) {
+        currentTurn = nextTurn;
+        updateTurnIndicatorUI();
+        if (currentTurn === BLACK) {
+          refreshLegalMoveIndicators();
+        } else {
+          // 輪到電腦阿喵！思考約 550ms 後出招
+          later(makeAIMove, 550);
+        }
+      } else {
+        // 對手無子可下！檢查己方是否也無子可下
+        const currentLegalMoves = getLegalMoves(currentTurn);
+        if (currentLegalMoves.length === 0) {
+          // 雙方皆無路可走，或是棋盤全滿 ➔ 終局結算！
+          triggerGameOver();
+        } else {
+          // 只有對手 Pass，由原玩家繼續下！
+          playSound('pass');
+          showToast(nextTurn === WHITE ? '🐱 阿喵無可下步，跳過回合 (Pass)！你繼續出招！' : '🐾 你無可下步，跳過回合 (Pass)！輪到阿喵！');
+          updateTurnIndicatorUI();
+          if (currentTurn === BLACK) {
+            refreshLegalMoveIndicators();
+          } else {
+            later(makeAIMove, 550);
+          }
+        }
+      }
+    }
+
+    function triggerGameOver() {
+      isGameOver = true;
+      hintMeshes.forEach(m => removeAndDispose(m, scene));
+      hintMeshes = [];
+
+      let blackCount = 0;
+      let whiteCount = 0;
+      for (let r = 0; r < boardSize; r++) {
+        for (let c = 0; c < boardSize; c++) {
+          if (boardState[r][c] === BLACK) blackCount++;
+          else if (boardState[r][c] === WHITE) whiteCount++;
+        }
+      }
+
+      const modal = document.getElementById('victory-modal');
+      const title = document.getElementById('victory-title');
+      const msg = document.getElementById('victory-msg');
+      const scores = document.getElementById('victory-scores');
+
+      scores.innerText = `⚫ 你 ${blackCount} : ⚪ 阿喵 ${whiteCount}`;
+
+      if (blackCount > whiteCount) {
+        playSound('win');
+        title.innerText = '🎉 勝利大滿貫！你贏了！';
+        msg.innerText = '太厲害了！你以超凡智慧成功戰勝了阿喵老師！';
+        fireConfetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        setTimeout(() => fireConfetti({ particleCount: 80, spread: 100, origin: { y: 0.5 } }), 350);
+      } else if (whiteCount > blackCount) {
+        title.innerText = '🐱 阿喵老師險勝！';
+        msg.innerText = '差一點點就贏了！記住「搶佔四角、避開危險格」，再來一局！';
+      } else {
+        title.innerText = '🤝 勢均力敵，完美平手！';
+        msg.innerText = '雙方實力旗鼓相當，精采絕倫的一場對局！';
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    /* ==========================================================================
+       10. 阿喵老師三階漸進式 AI 引擎 (易學難精、趣味博弈)
+       ========================================================================== */
+    // 8x8 經典位置權重評估矩陣 (Position Weight Matrix)
+    const WEIGHTS_8x8 = [
+      [ 100, -20,  15,   5,   5,  15, -20, 100 ],
+      [ -20, -40,  -5,  -5,  -5,  -5, -40, -20 ],
+      [  15,  -5,   3,   2,   2,   3,  -5,  15 ],
+      [   5,  -5,   2,   1,   1,   2,  -5,   5 ],
+      [   5,  -5,   2,   1,   1,   2,  -5,   5 ],
+      [  15,  -5,   3,   2,   2,   3,  -5,  15 ],
+      [ -20, -40,  -5,  -5,  -5,  -5, -40, -20 ],
+      [ 100, -20,  15,   5,   5,  15, -20, 100 ]
+    ];
+
+    const WEIGHTS_6x6 = [
+      [  80, -25,  10,  10, -25,  80 ],
+      [ -25, -35,  -3,  -3, -35, -25 ],
+      [  10,  -3,   2,   2,  -3,  10 ],
+      [  10,  -3,   2,   2,  -3,  10 ],
+      [ -25, -35,  -3,  -3, -35, -25 ],
+      [  80, -25,  10,  10, -25,  80 ]
+    ];
+
+    function makeAIMove() {
+      if (isGameOver || isAnimating || currentTurn !== WHITE) return;
+
+      const legalMoves = getLegalMoves(WHITE);
+      if (legalMoves.length === 0) {
+        switchTurn();
+        return;
+      }
+
+      let chosenMove = null;
+      const weightMatrix = (boardSize === 8) ? WEIGHTS_8x8 : WEIGHTS_6x6;
+
+      if (aiDifficulty === 1) {
+        // ⭐ 幼幼貓 (簡單)：貪心翻最多，偶爾犯小糊塗送出四角
+        legalMoves.sort((a, b) => b.flipsCount - a.flipsCount);
+        // 75% 機率選翻最多的，25% 隨機選
+        if (Math.random() < 0.75) {
+          chosenMove = legalMoves[0];
+        } else {
+          chosenMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+        }
+      } 
+      else if (aiDifficulty === 2) {
+        // ⭐⭐ 戰術阿喵 (普通)：搶佔四角、避開危險X/C格
+        legalMoves.forEach(m => {
+          let score = m.flipsCount * 2 + weightMatrix[m.r][m.c];
+          // 如果是角，極度加分！
+          if ((m.r === 0 || m.r === boardSize - 1) && (m.c === 0 || m.c === boardSize - 1)) {
+            score += 200;
+          }
+          m.aiScore = score + Math.random() * 2;
+        });
+        legalMoves.sort((a, b) => b.aiScore - a.aiScore);
+        chosenMove = legalMoves[0];
+      } 
+      else {
+        // ⭐⭐⭐ 棋聖老喵 (困難)：權重評估矩陣 + 前瞻對手行動力削弱
+        legalMoves.forEach(m => {
+          let score = weightMatrix[m.r][m.c] * 3.5 + m.flipsCount * 1.5;
+
+          // 模擬落子後，預測對手能下的步數 (限制對手行動力)
+          const simBoard = boardState.map(row => [...row]);
+          simBoard[m.r][m.c] = WHITE;
+          m.flipped.forEach(f => simBoard[f.r][f.c] = WHITE);
+
+          // 計算對手合法步
+          let oppMovesCount = 0;
+          for (let r = 0; r < boardSize; r++) {
+            for (let c = 0; c < boardSize; c++) {
+              if (simBoard[r][c] === EMPTY) {
+                // 簡化判定是否有得翻
+                for (const [dr, dc] of DIRECTIONS) {
+                  let cr = r + dr, cc = c + dc;
+                  let hasOpp = false;
+                  while (cr >= 0 && cr < boardSize && cc >= 0 && cc < boardSize && simBoard[cr][cc] === WHITE) {
+                    hasOpp = true;
+                    cr += dr; cc += dc;
+                  }
+                  if (hasOpp && cr >= 0 && cr < boardSize && cc >= 0 && cc < boardSize && simBoard[cr][cc] === BLACK) {
+                    oppMovesCount++;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          // 對手能走的步數越少越好 (削弱行動力)
+          score -= oppMovesCount * 4.0;
+          m.aiScore = score + Math.random() * 1.5;
+        });
+
+        legalMoves.sort((a, b) => b.aiScore - a.aiScore);
+        chosenMove = legalMoves[0];
+      }
+
+      executeMove(chosenMove.r, chosenMove.c, WHITE);
+    }
+
+    /* ==========================================================================
+       11. 使用者點擊互動與射線拾取 (Solid Raycast Targets)
+       ========================================================================== */
+    function onPointerUp(event) {
+      if (isGameOver || isAnimating || currentTurn !== BLACK) return;
+
+      const dist = Math.hypot(event.clientX - pointerDownPos.x, event.clientY - pointerDownPos.y);
+      if (dist > 8) return; // 判定為旋轉或拖曳視角，忽略誤觸
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // 1. 優先拾取金色合法落點圓盤 (Solid Raycast Discs)
+      const hitHints = raycaster.intersectObjects(hintMeshes, true);
+      if (hitHints.length > 0) {
+        let obj = hitHints[0].object;
+        while (obj && !obj.userData.move && obj.parent) {
+          obj = obj.parent;
+        }
+        if (obj && obj.userData.move) {
+          const m = obj.userData.move;
+          executeMove(m.r, m.c, BLACK);
+          return;
+        }
+      }
+
+      // 2. 備援：點擊棋盤網格
+      const tileMeshes = boardTiles.map(t => t.mesh);
+      const hitTiles = raycaster.intersectObjects(tileMeshes, false);
+      if (hitTiles.length > 0) {
+        const hitTile = hitTiles[0].object;
+        const tileData = boardTiles.find(t => t.mesh === hitTile);
+        if (tileData) {
+          const legalMoves = getLegalMoves(BLACK);
+          const matched = legalMoves.find(m => m.r === tileData.r && m.c === tileData.c);
+          if (matched) {
+            executeMove(matched.r, matched.c, BLACK);
+          }
+        }
+      }
+    }
+
+    /* ==========================================================================
+       12. UI 互動、切換盤面與悔棋輔助
+       ========================================================================== */
+    function updateScoreboardUI() {
+      let b = 0, w = 0;
+      for (let r = 0; r < boardSize; r++) {
+        for (let c = 0; c < boardSize; c++) {
+          if (boardState[r][c] === BLACK) b++;
+          else if (boardState[r][c] === WHITE) w++;
+        }
+      }
+      document.getElementById('score-black').innerText = b;
+      document.getElementById('score-white').innerText = w;
+    }
+
+    function updateTurnIndicatorUI() {
+      const badge = document.getElementById('turn-indicator');
+      if (currentTurn === BLACK) {
+        badge.innerHTML = '<span>🐾 你的回合</span>';
+        badge.style.color = '#fef08a';
+      } else {
+        badge.innerHTML = '<span>🐱 阿喵思考中...</span>';
+        badge.style.color = '#38bdf8';
+      }
+    }
+
+    function showToast(text, durationMs = 2400) {
+      const toast = document.getElementById('toast-box');
+      toast.innerText = text;
+      toast.style.display = 'block';
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => {
+        toast.style.display = 'none';
+      }, durationMs);
+    }
+
+    function switchBoardMode(mode) {
+      if (currentMode === mode && !isGameOver) return;
+      currentMode = mode;
+      boardSize = (mode === '6x6') ? 6 : 8;
+
+      document.getElementById('btn-mode-8x8').classList.toggle('active', mode === '8x8');
+      document.getElementById('btn-mode-6x6').classList.toggle('active', mode === '6x6');
+
+      build3DBoard();
+      initGameBoard();
+      resetCameraView();
+      showToast(`已切換為：${mode === '6x6' ? '⚡ 6×6 快速盤 (下課前速戰速決)' : '🌟 8×8 標準大棋盤'}`);
+    }
+
+    function cycleDifficulty() {
+      aiDifficulty = (aiDifficulty % 3) + 1;
+      const btn = document.getElementById('btn-diff');
+      btn.innerText = DIFFICULTY_NAMES[aiDifficulty - 1];
+      showToast(`阿喵難度已調整為：${DIFFICULTY_NAMES[aiDifficulty - 1]}`);
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const btn = document.getElementById('btn-sound');
+      btn.innerText = audioEnabled ? '🔊 音效' : '🔇 靜音';
+      btn.classList.toggle('active', audioEnabled);
+      showToast(audioEnabled ? '音效已開啟 🔊' : '音效已靜音 🔇');
+    }
+
+    function toggleHints() {
+      showFlipHints = !showFlipHints;
+      const btn = document.getElementById('btn-hint');
+      btn.innerText = `💡 翻子提示: ${showFlipHints ? '開' : '關'}`;
+      refreshLegalMoveIndicators();
+      showToast(`翻子數提示已${showFlipHints ? '開啟' : '隱藏'}`);
+    }
+
+    function undoMove() {
+      if (isAnimating || moveHistory.length === 0) {
+        showToast('目前無法悔棋哦！');
+        return;
+      }
+      // 回溯至上一次玩家回合
+      let restored = null;
+      while (moveHistory.length > 0) {
+        const item = moveHistory.pop();
+        if (item.turn === BLACK) {
+          restored = item;
+          break;
+        }
+      }
+      if (!restored) {
+        showToast('已經回到開局，無法再悔棋！');
+        return;
+      }
+
+      gameEpoch++; // 悔棋也讓尚未執行的電腦出手計時器失效
+      boardState = restored.board;
+      currentTurn = BLACK;
+      isGameOver = false;
+
+      syncAllPieceMeshes();
+      updateScoreboardUI();
+      updateTurnIndicatorUI();
+      refreshLegalMoveIndicators();
+      showToast('已成功回溯一步！🐾');
+    }
+
+    function resetGame() {
+      document.getElementById('victory-modal').style.display = 'none';
+      initGameBoard();
+      showToast('新棋局已開打！黑子先手 🐾');
+    }
+
+    function openRules() {
+      document.getElementById('rules-modal').style.display = 'flex';
+    }
+
+    function closeRules() {
+      document.getElementById('rules-modal').style.display = 'none';
+    }
+
+    function closeVictoryAndRestart() {
+      document.getElementById('victory-modal').style.display = 'none';
+      resetGame();
+    }
+
+    /* ==========================================================================
+       13. 動畫渲染迴圈 (Render Animation Loop)
+       ========================================================================== */
+    function animate() {
+      // 有變化才重繪 (見 common.js)；落點提示盤有呼吸效果
+      startRenderLoop({
+        renderer, scene, camera, controls,
+        hasIdleEffects: () => hintMeshes.length > 0,
+        onFrame: animateEffects
+      });
+    }
+
+    function animateEffects() {
+      // 金色提示盤微幅呼吸浮動動畫
+      if (hintMeshes.length > 0) {
+        const time = performance.now() * 0.003;
+        hintMeshes.forEach((mesh, i) => {
+          mesh.position.y = HINT_Y + Math.sin(time + i * 0.5) * 0.012;
+        });
+      }
+    }
+
+    // 啟動遊戲
+    window.addEventListener('DOMContentLoaded', () => {
+      // T04：檢查 THREE 與 WebGL 是否可用
+      (function checkEnv() {
+        const screen = document.getElementById('load-screen');
+        const msg = document.getElementById('load-msg');
+        if (typeof THREE === 'undefined' || typeof startRenderLoop === 'undefined') {
+          msg.textContent = '😿 遊戲無法載入，請重新整理頁面或告訴老師';
+          return;
+        }
+        const c = document.createElement('canvas');
+        if (!c.getContext('webgl') && !c.getContext('experimental-webgl')) {
+          msg.textContent = '😿 這台電腦不支援 3D 顯示，請告訴老師';
+          return;
+        }
+        screen.style.display = 'none';
+      })();
+      initThreeScene();
+      build3DBoard();
+      initGameBoard();
+    });
+  </script>
+</body>
+</html>

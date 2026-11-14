@@ -1,0 +1,2218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D 萌寵鬥獸棋 (Dou Shou Qi)</title>
+  <!-- Three.js & Controls (Zero-asset architecture via CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --accent: #f59e0b;
+      --hud-bg: rgba(255, 255, 255, 0.94);
+      --hud-border: rgba(226, 232, 240, 0.9);
+      --text: #0f172a;
+      --text-muted: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 30%, #334155 0%, #1e293b 60%, #0f172a 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+
+    #webgl-container, #webgl-container canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    /* 頂部導航欄 (Top Bar) */
+    .top-bar {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .brand-card {
+      flex-shrink: 0;
+      pointer-events: auto;
+      background: var(--hud-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--hud-border);
+      border-radius: 18px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+
+    .brand-icon {
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .brand-badge {
+      font-size: 11px;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: 6px;
+    }
+
+    .top-actions {
+      pointer-events: auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      background: var(--hud-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--hud-border);
+      border-radius: 14px;
+      padding: 9px 15px;
+      min-height: 44px;
+      box-sizing: border-box;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.14);
+      transition: all 0.2s;
+    }
+
+    .hud-btn:hover {
+      background: #ffffff;
+      transform: translateY(-2px);
+      color: var(--primary);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+    }
+
+    /* 底部狀態欄 (Bottom Dock) - 永遠靠邊，保障畫面中央 3D 棋盤 100% 無遮擋 */
+    .bottom-bar {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .status-dock {
+      pointer-events: auto;
+      max-width: 680px;
+      width: 100%;
+      background: var(--hud-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--hud-border);
+      border-radius: 20px;
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.25);
+    }
+
+    .turn-indicator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .team-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+      border: 2px solid white;
+    }
+
+    .team-badge.blue {
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
+    }
+
+    .team-badge.red {
+      background: linear-gradient(135deg, #f87171, #dc2626);
+    }
+
+    .turn-text-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .turn-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .turn-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .piece-detail-pill {
+      background: #f1f5f9;
+      border-radius: 14px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: 800;
+      color: #1e293b;
+    }
+
+    .piece-rank-tag {
+      background: #0284c7;
+      color: white;
+      border-radius: 8px;
+      padding: 2px 7px;
+      font-size: 11px;
+    }
+
+    /* 彈窗樣式 */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      border-radius: 24px;
+      max-width: 580px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #f1f5f9;
+      padding-bottom: 12px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .close-btn {
+      background: #f1f5f9;
+      border: none;
+      width: 44px;
+      height: 44px;
+      min-height: 44px;
+      border-radius: 50%;
+      font-size: 16px;
+      font-weight: 700;
+      color: #64748b;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+
+    .hierarchy-chain {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 12px;
+      padding: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      color: #0369a1;
+    }
+
+    .special-rat {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 8px 12px;
+      color: #b91c1c;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .rule-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #334155;
+    }
+
+    .rule-item strong {
+      color: #0369a1;
+      font-size: 14px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 28px;
+      min-height: 44px;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(2, 132, 199, 0.35);
+      align-self: center;
+    }
+
+    .victory-modal {
+      text-align: center;
+      align-items: center;
+    }
+
+    .victory-icon {
+      font-size: 60px;
+      animation: bounce 1s infinite alternate;
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+  </style>
+</head>
+<body>
+  <!-- T04：載入遮罩，預設顯示；主程式確認 THREE 與 WebGL 正常後隱藏 -->
+  <div id="load-screen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1e293b;color:#fff;font-family:sans-serif;font-size:1.1rem;gap:1rem;">
+    <div id="load-msg">⏳ 遊戲載入中…</div>
+  </div>
+
+  <!-- WebGL 畫布容器 -->
+  <div id="webgl-container"></div>
+
+  <!-- 頂部控制欄 -->
+  <div class="top-bar">
+    <div class="brand-card">
+      <div class="brand-icon">🦁</div>
+      <div>
+        <span class="brand-title">3D 萌寵鬥獸棋</span>
+        <span class="brand-badge">小學生課堂專用</span>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <button class="hud-btn" id="btn-diff">⭐ 小獅子</button>
+      <button class="hud-btn" id="btn-sound">
+        <span id="sound-icon">🔊</span> 音效
+      </button>
+      <button class="hud-btn" id="btn-camera">
+        🎥 視角重設
+      </button>
+      <button class="hud-btn" id="btn-rules">
+        ❓ 規則手冊
+      </button>
+      <button class="hud-btn" id="btn-undo">
+        ↩️ 悔棋
+      </button>
+      <button class="hud-btn" id="btn-restart">
+        🔄 重新開局
+      </button>
+    </div>
+  </div>
+
+  <!-- 底部狀態資訊欄 (中央無遮擋) -->
+  <div class="bottom-bar">
+    <div class="status-dock">
+      <div class="turn-indicator">
+        <div class="team-badge blue" id="team-badge">🐾</div>
+        <div class="turn-text-group">
+          <div class="turn-title" id="status-title">輪到藍隊（您）出招！</div>
+          <div class="turn-subtitle" id="status-subtitle">點選您的棋子查看移動與吃子路徑（向日葵金環）</div>
+        </div>
+      </div>
+
+      <div class="piece-detail-pill" id="selected-piece-card" style="display: none;">
+        <span class="piece-rank-tag" id="card-rank">等級 8</span>
+        <span id="card-name">🐘 象</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 規則視窗 -->
+  <div class="modal-overlay" id="rules-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">📖 鬥獸棋課堂規則手冊</div>
+        <button class="close-btn" id="btn-close-rules">✕</button>
+      </div>
+
+      <div class="hierarchy-chain">
+        <span>🐘 象(8)</span> ➔ 
+        <span>🦁 獅(7)</span> ➔ 
+        <span>🐯 虎(6)</span> ➔ 
+        <span>🐆 豹(5)</span> ➔ 
+        <span>🐺 狼(4)</span> ➔ 
+        <span>🐶 狗(3)</span> ➔ 
+        <span>🐱 貓(2)</span> ➔ 
+        <span>🐭 鼠(1)</span>
+      </div>
+
+      <div class="special-rat">
+        ⚡ 傳奇逆襲：最小的【鼠 (1)】可以吃掉最大的【象 (8)】！象不能吃鼠！
+      </div>
+
+      <div class="rule-item">
+        <strong>🎯 獲勝方式</strong>
+        任一方棋子只要走入【對方的獸穴】，即可立刻獲得勝利！不可走入己方獸穴。
+      </div>
+
+      <div class="rule-item">
+        <strong>🌊 小河特權（鼠 & 獅虎）</strong>
+        • 只有【鼠】能游進河中。鼠在水裡時不能吃岸上的象，岸上動物也不能吃水裡的鼠。<br>
+        • 【獅】與【虎】可直接橫向或縱向「飛躍」整條大河！但河道中若有鼠擋路則無法跳躍。
+      </div>
+
+      <div class="rule-item">
+        <strong>🕳️ 陷阱破防</strong>
+        當棋子走進【對方的陷阱】時，戰鬥力直接歸零！防守方任何動物（連小鼠）都能輕鬆吃掉它。在己方陷阱則不受影響。
+      </div>
+
+      <button class="btn-primary" id="btn-rules-ok">我知道了！開始挑戰</button>
+    </div>
+  </div>
+
+  <!-- 勝利結算彈窗 -->
+  <div class="modal-overlay" id="victory-modal">
+    <div class="modal-card victory-modal">
+      <div class="victory-icon" id="vic-icon">🏆</div>
+      <div class="modal-title" id="vic-title" style="font-size: 24px;">藍隊大獲全勝！</div>
+      <div id="vic-desc" style="color: #64748b; font-size: 14px; line-height: 1.6;">
+        恭喜您成功佔領敵方獸穴，展現了神級森林棋藝！
+      </div>
+      <button class="btn-primary" id="btn-play-again" style="margin-top: 10px;">再來一局 🎮</button>
+    </div>
+  </div>
+
+  <!-- ================= 主邏輯 Script ================= -->
+  <!-- 五款遊戲共用的程式 (局號、資源釋放、有變化才重繪) -->
+  <script src="common.js"></script>
+  <script>
+    // -------------------------------------------------------------
+    // 1. Web Audio API 音效合成器 (100% 零外部音檔依賴)
+    // -------------------------------------------------------------
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playTone(freqStart, freqEnd, type, duration, gainLevel = 0.15) {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const now = this.ctx.currentTime;
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freqStart, now);
+        if (freqEnd !== null) {
+          osc.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), now + duration);
+        }
+
+        gain.gain.setValueAtTime(gainLevel, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+
+      playSelect() { this.playTone(720, 880, 'sine', 0.08, 0.1); }
+      playMove() { this.playTone(320, 560, 'sine', 0.14, 0.18); }
+      playJump() { this.playTone(220, 860, 'triangle', 0.35, 0.22); }
+      playSplash() { this.playTone(600, 240, 'sine', 0.22, 0.2); }
+      playCapture() {
+        this.playTone(440, 880, 'triangle', 0.18, 0.22);
+        setTimeout(() => this.playTone(660, 1320, 'sine', 0.22, 0.22), 60);
+      }
+      playTrapAlert() { this.playTone(400, 150, 'sawtooth', 0.3, 0.15); }
+      playVictory() {
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            this.playTone(freq, freq * 1.05, 'triangle', 0.5, 0.25);
+          }, idx * 110);
+        });
+      }
+    }
+
+    const audio = new SoundEngine();
+
+    // -------------------------------------------------------------
+    // 2. 棋盤維度與常數
+    // -------------------------------------------------------------
+    const COLS = 7;
+    const ROWS = 9;
+    const CELL_SIZE = 2.4;
+    const BOARD_WIDTH = COLS * CELL_SIZE;
+    const BOARD_DEPTH = ROWS * CELL_SIZE;
+
+    const TEAM_BLUE = 'blue';
+    const TEAM_RED = 'red';
+
+    const ANIMALS = {
+      ELEPHANT: { id: 'elephant', name: '象', char: '象', rank: 8, emoji: '🐘', canJump: false, canSwim: false },
+      LION:     { id: 'lion',     name: '獅', char: '獅', rank: 7, emoji: '🦁', canJump: true,  canSwim: false },
+      TIGER:    { id: 'tiger',    name: '虎', char: '虎', rank: 6, emoji: '🐯', canJump: true,  canSwim: false },
+      LEOPARD:  { id: 'leopard',  name: '豹', char: '豹', rank: 5, emoji: '🐆', canJump: false, canSwim: false },
+      WOLF:     { id: 'wolf',     name: '狼', char: '狼', rank: 4, emoji: '🐺', canJump: false, canSwim: false },
+      DOG:      { id: 'dog',      name: '狗', char: '狗', rank: 3, emoji: '🐶', canJump: false, canSwim: false },
+      CAT:      { id: 'cat',      name: '貓', char: '貓', rank: 2, emoji: '🐱', canJump: false, canSwim: false },
+      RAT:      { id: 'rat',      name: '鼠', char: '鼠', rank: 1, emoji: '🐭', canJump: false, canSwim: true  }
+    };
+
+    function isRiver(r, c) {
+      return (r >= 3 && r <= 5) && ((c >= 1 && c <= 2) || (c >= 4 && c <= 5));
+    }
+
+    function isTrap(r, c) {
+      if ((r === 0 && (c === 2 || c === 4)) || (r === 1 && c === 3)) return TEAM_RED;
+      if ((r === 8 && (c === 2 || c === 4)) || (r === 7 && c === 3)) return TEAM_BLUE;
+      return null;
+    }
+
+    function isDen(r, c) {
+      if (r === 0 && c === 3) return TEAM_RED;
+      if (r === 8 && c === 3) return TEAM_BLUE;
+      return null;
+    }
+
+    function gridToWorld(r, c, yOffset = 0.30) {
+      const x = (c - (COLS - 1) / 2) * CELL_SIZE;
+      const z = (r - (ROWS - 1) / 2) * CELL_SIZE;
+      return new THREE.Vector3(x, yOffset, z);
+    }
+
+    // -------------------------------------------------------------
+    // 3. 初始排局 (標準 180° 旋轉對稱佈陣)
+    // -------------------------------------------------------------
+    function createInitialBoardState() {
+      const board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+
+      function place(r, c, typeKey, team) {
+        board[r][c] = {
+          typeKey,
+          team,
+          ...ANIMALS[typeKey],
+          mesh: null,
+          r,
+          c
+        };
+      }
+
+      // 北方紅隊 (Red)
+      place(0, 0, 'LION',     TEAM_RED);
+      place(0, 6, 'TIGER',    TEAM_RED);
+      place(1, 1, 'DOG',      TEAM_RED);
+      place(1, 5, 'CAT',      TEAM_RED);
+      place(2, 0, 'RAT',      TEAM_RED);
+      place(2, 2, 'LEOPARD',  TEAM_RED);
+      place(2, 4, 'WOLF',     TEAM_RED);
+      place(2, 6, 'ELEPHANT', TEAM_RED);
+
+      // 南方藍隊 (Blue)
+      place(8, 0, 'TIGER',    TEAM_BLUE);
+      place(8, 6, 'LION',     TEAM_BLUE);
+      place(7, 1, 'CAT',      TEAM_BLUE);
+      place(7, 5, 'DOG',      TEAM_BLUE);
+      place(6, 0, 'ELEPHANT', TEAM_BLUE);
+      place(6, 2, 'WOLF',     TEAM_BLUE);
+      place(6, 4, 'LEOPARD',  TEAM_BLUE);
+      place(6, 6, 'RAT',      TEAM_BLUE);
+
+      return board;
+    }
+
+    // -------------------------------------------------------------
+    // 4. Three.js 場景建構器 (攝影棚光影、ACESFilmicToneMapping)
+    // -------------------------------------------------------------
+    let scene, camera, renderer, controls;
+    let boardState = [];
+    let pieceMeshes = [];
+    let highlightMeshes = [];
+    let riverWaterMesh;
+    let currentTurn = TEAM_BLUE;
+    let selectedPiece = null;
+    let isAnimating = false;
+    let isGameOver = false;
+    // 電腦難度 (1: 小獅子, 2: 森林獵手, 3: 森林之王)
+    let aiDifficulty = 1;
+    const DIFFICULTY_NAMES = ['⭐ 小獅子', '⭐⭐ 森林獵手', '⭐⭐⭐ 森林之王'];
+    // gameEpoch、later() 定義在 common.js
+
+    const container = document.getElementById('webgl-container');
+
+    function initThree() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0f172a);
+
+      // 40° FOV，舒適立體視角（清楚俯瞰所有棋子立體身形與臉部）
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.5, 150);
+      resetCamera();
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 0.90; // 降低曝光度，色彩厚實飽和，告別發白過曝
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.minPolarAngle = Math.PI / 6;   // 最陡俯視 30°
+      controls.maxPolarAngle = Math.PI / 2.7; // 防止過度平躺視角 (限制在 66° 內，保持立體最佳斜視角)
+      controls.minDistance = 15;
+      controls.maxDistance = 42;
+      controls.target.set(0, 0, 0);
+
+      // 攝影棚柔和控光配置 (暖色低流明環境光，凸顯模型雕刻陰影)
+      const ambientLight = new THREE.AmbientLight(0xffedd5, 0.38);
+      scene.add(ambientLight);
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.22);
+      hemiLight.position.set(0, 25, 0);
+      scene.add(hemiLight);
+
+      const mainSun = new THREE.DirectionalLight(0xfffaed, 0.65);
+      mainSun.position.set(12, 26, 16);
+      mainSun.castShadow = true;
+      mainSun.shadow.mapSize.width = 1024;
+      mainSun.shadow.mapSize.height = 1024;
+      mainSun.shadow.bias = -0.00002;
+      mainSun.shadow.normalBias = 0.04; // 關鍵技術：徹底消除平面陰影閃爍 (Shadow Acne)！
+      mainSun.shadow.camera.near = 5;
+      mainSun.shadow.camera.far = 70;
+      mainSun.shadow.camera.left = -18;
+      mainSun.shadow.camera.right = 18;
+      mainSun.shadow.camera.top = 22;
+      mainSun.shadow.camera.bottom = -22;
+      scene.add(mainSun);
+
+      // 柔和天光反光 (極低強度，不沖淡色彩)
+      const fillLight = new THREE.DirectionalLight(0xfde047, 0.15);
+      fillLight.position.set(-16, 20, -14);
+      scene.add(fillLight);
+
+      // 建構溫潤木質棋盤與小河
+      buildBoardAndTable();
+
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('pointerdown', (e) => { _pdX = e.clientX; _pdY = e.clientY; });
+      renderer.domElement.addEventListener('pointerup', onPointerUp);
+
+      animate();
+    }
+
+    function resetCamera() {
+      // 舒適半俯視角 (高度 24，向前距離 19.5)，棋盤立體滿版展現，無貼地透視變形
+      camera.position.set(0, 24, 19.5);
+      if (controls) {
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // -------------------------------------------------------------
+    // 5. 溫潤深木色棋盤與小河場景建模 (徹底杜絕 Z-fighting 閃爍)
+    // -------------------------------------------------------------
+    function buildBoardAndTable() {
+      // 1. 底層深色木質厚桌面
+      const deskGeo = new THREE.CylinderGeometry(25, 26, 1.4, 64);
+      const deskMat = new THREE.MeshStandardMaterial({
+        color: 0x090d16,
+        roughness: 0.9,
+        metalness: 0.05
+      });
+      const desk = new THREE.Mesh(deskGeo, deskMat);
+      desk.position.y = -0.9;
+      desk.receiveShadow = true;
+      scene.add(desk);
+
+      // 2. 主棋盤底座（深胡桃實木框架，頂面位於 y = +0.05，徹底杜絕與地磚頂面共面閃爍！）
+      const boardBaseGeo = new THREE.BoxGeometry(BOARD_WIDTH + 1.6, 0.4, BOARD_DEPTH + 1.6);
+      const woodBorderMat = new THREE.MeshStandardMaterial({
+        color: 0x271406,
+        roughness: 0.5,
+        metalness: 0.05
+      });
+      const boardBase = new THREE.Mesh(boardBaseGeo, woodBorderMat);
+      boardBase.position.y = -0.15;
+      boardBase.receiveShadow = true;
+      scene.add(boardBase);
+
+      // 棋盤沉穩黃銅古金外框飾條
+      const trimGeo = new THREE.BoxGeometry(BOARD_WIDTH + 1.8, 0.12, BOARD_DEPTH + 1.8);
+      const goldTrimMat = new THREE.MeshStandardMaterial({
+        color: 0x78350f,
+        roughness: 0.35,
+        metalness: 0.4
+      });
+      const trim = new THREE.Mesh(trimGeo, goldTrimMat);
+      trim.position.y = -0.36;
+      scene.add(trim);
+
+      // 3. 建立 7 x 9 棋盤每塊精緻木格 (頂面位於 y = +0.30，底面接 y = +0.05)
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          createCellMesh(r, c);
+        }
+      }
+
+      // 4. 地面微浮雕獸穴徽章 (貼平於 y = +0.305)
+      createGroundDenPlate(0, 3, TEAM_RED);
+      createGroundDenPlate(8, 3, TEAM_BLUE);
+    }
+
+    function createCellMesh(r, c) {
+      const pos = gridToWorld(r, c, 0);
+      const inRiver = isRiver(r, c);
+      const trapOwner = isTrap(r, c);
+      const denOwner = isDen(r, c);
+
+      let tileMat;
+      let height = 0.25;
+      let yPos = 0.175; // 頂部高度在 y = +0.30，底面在 y = +0.05，與底座完全無共面閃爍！
+
+      if (inRiver) {
+        // 小河水面：深寶石藍，向下凹陷 (頂部在 y = +0.18，比陸地低 0.12)
+        height = 0.13;
+        yPos = 0.115;
+        tileMat = new THREE.MeshStandardMaterial({
+          color: 0x0284c7,
+          roughness: 0.08,
+          metalness: 0.15,
+          transparent: true,
+          opacity: 0.95
+        });
+      } else if (denOwner) {
+        // 獸穴底磚：濃郁紅寶石 / 皇家藍
+        tileMat = new THREE.MeshStandardMaterial({
+          color: denOwner === TEAM_BLUE ? 0x1e40af : 0x991b1b,
+          roughness: 0.35,
+          metalness: 0.2
+        });
+      } else if (trapOwner) {
+        // 陷阱底磚：深蜜木色
+        tileMat = new THREE.MeshStandardMaterial({
+          color: trapOwner === TEAM_BLUE ? 0x93c5fd : 0xfca5a5,
+          roughness: 0.45,
+          metalness: 0.05
+        });
+      } else {
+        // 溫潤深木色相間棋盤格 (深柚木與琥珀木紋，告別過曝發白！)
+        const isAlt = (r + c) % 2 === 0;
+        tileMat = new THREE.MeshStandardMaterial({
+          color: isAlt ? 0xb47844 : 0x93562a,
+          roughness: 0.46,
+          metalness: 0.04
+        });
+      }
+
+      const cellGeo = new THREE.BoxGeometry(CELL_SIZE - 0.08, height, CELL_SIZE - 0.08);
+      const cellMesh = new THREE.Mesh(cellGeo, tileMat);
+      cellMesh.position.set(pos.x, yPos, pos.z);
+      cellMesh.receiveShadow = true;
+      scene.add(cellMesh);
+
+      // 若是陷阱，加入雕刻交叉警示紋 (牢牢貼在木格頂部 0.31)
+      if (trapOwner) {
+        const markMat = new THREE.MeshStandardMaterial({
+          color: trapOwner === TEAM_BLUE ? 0x1e3a8a : 0x7f1d1d,
+          roughness: 0.35
+        });
+        [-1, 1].forEach(sign => {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.03, 0.2), markMat);
+          bar.rotation.y = sign * (Math.PI / 4);
+          bar.position.set(pos.x, 0.31, pos.z);
+          scene.add(bar);
+        });
+      }
+
+      // 若是小河，水面睡蓮葉 (浮在水面 y = +0.19)
+      if (inRiver && (r === 3 && c === 1 || r === 4 && c === 5)) {
+        const padMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.35 });
+        const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.02, 16), padMat);
+        pad.position.set(pos.x + 0.3, 0.19, pos.z - 0.2);
+        scene.add(pad);
+      }
+    }
+
+    function createGroundDenPlate(r, c, team) {
+      const pos = gridToWorld(r, c, 0.305); // 緊密貼在 y = 0.30 的地磚上方
+      const isBlue = team === TEAM_BLUE;
+
+      const plateGeo = new THREE.CylinderGeometry(0.92, 0.92, 0.03, 32);
+      const plateMat = new THREE.MeshStandardMaterial({
+        color: isBlue ? 0x1e3a8a : 0x7f1d1d,
+        roughness: 0.3,
+        metalness: 0.35
+      });
+      const plate = new THREE.Mesh(plateGeo, plateMat);
+      plate.position.copy(pos);
+      scene.add(plate);
+
+      // 金色外圈
+      const ringGeo = new THREE.TorusGeometry(0.72, 0.05, 12, 32);
+      const ringMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.25, metalness: 0.5 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(pos.x, pos.y + 0.02, pos.z);
+      scene.add(ring);
+    }
+
+    // -------------------------------------------------------------
+    // 6. 精緻立體公仔 3D 棋子建模 (比照概念圖：身軀、頭部、四肢、隊伍配件)
+    // -------------------------------------------------------------
+    function createPieceMesh(piece) {
+      const group = new THREE.Group();
+      const isBlue = piece.team === TEAM_BLUE;
+
+      // 共通材質產生器 (塘膠公仔質感：微光澤無刺眼高光)
+      const getMat = (color, roughness = 0.36, metalness = 0.04) => 
+        new THREE.MeshStandardMaterial({ color, roughness, metalness });
+
+      // 1. 雙層拋光深核桃木底座 (Double-Tiered Dark Walnut Pedestal)
+      const baseLowerGeo = new THREE.CylinderGeometry(0.9, 0.94, 0.18, 32);
+      const woodBaseMat = getMat(0x271406, 0.45, 0.08);
+      const baseLower = new THREE.Mesh(baseLowerGeo, woodBaseMat);
+      baseLower.position.y = 0.09;
+      baseLower.castShadow = true;
+      baseLower.receiveShadow = true;
+      group.add(baseLower);
+
+      // 隊伍專屬發光外環 (藍隊深海藍 / 紅隊紅寶石，色彩濃郁飽和)
+      const teamGlowColor = isBlue ? 0x1d4ed8 : 0xb91c1c;
+      const teamRingGeo = new THREE.CylinderGeometry(0.86, 0.86, 0.12, 32);
+      const teamRingMat = new THREE.MeshStandardMaterial({
+        color: teamGlowColor,
+        roughness: 0.2,
+        emissive: teamGlowColor,
+        emissiveIntensity: 0.5
+      });
+      const teamRing = new THREE.Mesh(teamRingGeo, teamRingMat);
+      teamRing.position.y = 0.22;
+      group.add(teamRing);
+
+      // 上層木質托盤
+      const baseUpperGeo = new THREE.CylinderGeometry(0.78, 0.82, 0.1, 32);
+      const baseUpper = new THREE.Mesh(baseUpperGeo, woodBaseMat);
+      baseUpper.position.y = 0.32;
+      group.add(baseUpper);
+
+      // 正面圓形徽章 (中文單字 + 等級數字，微向前延伸 0.94，杜絕貼圖閃爍)
+      const badgeCanvas = document.createElement('canvas');
+      badgeCanvas.width = 128;
+      badgeCanvas.height = 128;
+      const bCtx = badgeCanvas.getContext('2d');
+      bCtx.fillStyle = isBlue ? '#1e40af' : '#991b1b';
+      bCtx.beginPath();
+      bCtx.arc(64, 64, 58, 0, Math.PI * 2);
+      bCtx.fill();
+      bCtx.lineWidth = 7;
+      bCtx.strokeStyle = '#f59e0b'; // 黃金包邊
+      bCtx.stroke();
+
+      bCtx.font = 'bold 54px sans-serif';
+      bCtx.fillStyle = '#ffffff';
+      bCtx.textAlign = 'center';
+      bCtx.textBaseline = 'middle';
+      bCtx.fillText(piece.char, 64, 52); // 單字直觀標示：鼠、貓、狗、狼、豹、虎、獅、象
+
+      bCtx.font = 'bold 36px sans-serif';
+      bCtx.fillStyle = '#fef08a';
+      bCtx.fillText(piece.rank, 64, 96);
+
+      const badgeTex = new THREE.CanvasTexture(badgeCanvas);
+      const badgeMat = new THREE.MeshBasicMaterial({ map: badgeTex, transparent: true });
+
+      // 南面圓形徽章 (朝向南面視角 z = +0.94，玩家永遠能清晰閱讀己方與對手等級)
+      const badgeDiscSouth = new THREE.Mesh(new THREE.CircleGeometry(0.25, 24), badgeMat);
+      badgeDiscSouth.position.set(0, 0.24, 0.94);
+      badgeDiscSouth.rotation.y = 0;
+      group.add(badgeDiscSouth);
+
+      // 北面圓形徽章 (朝向北面視角 z = -0.94，旋轉 3D 視角依然雙向可讀)
+      const badgeDiscNorth = new THREE.Mesh(new THREE.CircleGeometry(0.25, 24), badgeMat);
+      badgeDiscNorth.position.set(0, 0.24, -0.94);
+      badgeDiscNorth.rotation.y = Math.PI;
+      group.add(badgeDiscNorth);
+
+      // 2. 萌寵本體群組 (身軀 + 頭部 + 四肢 + 特徵)
+      const mascot = new THREE.Group();
+      mascot.position.y = 0.36;
+
+      // 共通輔助材質 (濃郁深邃色彩)
+      const eyeMat = getMat(0x020617, 0.08);
+      const catchlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const blushMat = getMat(0xf43f5e, 0.35); // 鮮麗玫瑰粉
+      const whiteMat = getMat(0xf8fafc, 0.3);
+      const noseMat = getMat(0x0f172a, 0.2);
+
+      // 輔助函式：加上大眼靈魂高光與粉紅害羞小腮紅
+      function addEyesAndBlush(eyeY, eyeZ, eyeSpread = 0.18, eyeSize = 0.065) {
+        [-1, 1].forEach(side => {
+          // 瞳孔
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeSize, 16, 16), eyeMat);
+          eye.position.set(side * eyeSpread, eyeY, eyeZ);
+          mascot.add(eye);
+
+          // 大高光點
+          const dot1 = new THREE.Mesh(new THREE.SphereGeometry(eyeSize * 0.42, 8, 8), catchlightMat);
+          dot1.position.set(side * eyeSpread + (side > 0 ? -0.015 : 0.015), eyeY + 0.018, eyeZ + eyeSize * 0.7);
+          mascot.add(dot1);
+
+          // 害羞粉嫩腮紅
+          const blush = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), blushMat);
+          blush.position.set(side * (eyeSpread + 0.1), eyeY - 0.08, eyeZ + 0.02);
+          blush.rotation.y = side * 0.25;
+          mascot.add(blush);
+        });
+      }
+
+      // 輔助函式：加上胸前可愛領結 (Team Bowtie)
+      function addTeamBowtie(y, z) {
+        const bowMat = getMat(teamGlowColor, 0.3);
+        const knot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), bowMat);
+        knot.position.set(0, y, z);
+        mascot.add(knot);
+
+        [-1, 1].forEach(side => {
+          const wing = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.16, 8), bowMat);
+          wing.rotation.z = side * Math.PI / 2;
+          wing.position.set(side * 0.1, y, z);
+          mascot.add(wing);
+        });
+      }
+
+      // 輔助函式：加上一雙垂放在底座前方的圓白小爪爪
+      function addSittingFrontPaws(pawY = 0.12, pawZ = 0.45, pawColor = 0xffffff) {
+        const pawMat = getMat(pawColor, 0.35);
+        [-0.18, 0.18].forEach(x => {
+          const paw = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), pawMat);
+          paw.scale.set(1.0, 0.7, 1.3);
+          paw.position.set(x, pawY, pawZ);
+          mascot.add(paw);
+        });
+      }
+
+      // 各動物客製化 3D 捏模
+      switch (piece.typeKey) {
+        case 'ELEPHANT': { // 🐘 大象：深皇家藍身軀、大蒲扇雙耳、向上翹長鼻、可愛象牙、坐姿粗腿
+          const eleColor = 0x2563eb; // 濃郁深藍，質感飽滿
+          const eleMat = getMat(eleColor);
+
+          // 圓滾下半身
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.48, 24, 20), eleMat);
+          body.scale.set(1.1, 0.95, 1.0);
+          body.position.y = 0.45;
+          body.castShadow = true;
+          mascot.add(body);
+
+          // 圓滾頭部
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.44, 24, 20), eleMat);
+          head.position.set(0, 0.92, 0.1);
+          head.castShadow = true;
+          mascot.add(head);
+
+          // 左右大蒲扇耳朵 (側展、內耳淡粉)
+          [-1, 1].forEach(side => {
+            const earGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.04, 24);
+            const ear = new THREE.Mesh(earGeo, eleMat);
+            ear.rotation.z = side * (Math.PI / 3.5);
+            ear.rotation.y = side * 0.3;
+            ear.position.set(side * 0.58, 0.98, -0.05);
+            mascot.add(ear);
+
+            const innerEar = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.05, 20), blushMat);
+            innerEar.rotation.copy(ear.rotation);
+            innerEar.position.set(side * 0.59, 0.98, -0.04);
+            mascot.add(innerEar);
+          });
+
+          // 向上翹的可愛小長鼻
+          const trunk1 = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.15, 0.28, 16), eleMat);
+          trunk1.position.set(0, 0.82, 0.52);
+          trunk1.rotation.x = Math.PI / 3;
+          mascot.add(trunk1);
+
+          const trunk2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), eleMat);
+          trunk2.position.set(0, 0.96, 0.64);
+          mascot.add(trunk2);
+
+          // 潔白可愛微翹小象牙
+          [-1, 1].forEach(side => {
+            const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.2, 12), whiteMat);
+            tusk.position.set(side * 0.16, 0.78, 0.5);
+            tusk.rotation.x = Math.PI / 2.3;
+            mascot.add(tusk);
+          });
+
+          addSittingFrontPaws(0.14, 0.46, eleColor);
+          addEyesAndBlush(0.98, 0.46, 0.22, 0.07);
+          addTeamBowtie(0.68, 0.46);
+          break;
+        }
+
+        case 'LION': { // 🦁 獅子：琥珀向日葵鬃毛圈圍繞、微笑面容、開朗自信
+          const lionColor = 0xd97706; // 濃郁琥珀金
+          const lionMat = getMat(lionColor);
+
+          // 身軀與白肚肚
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.44, 24, 20), lionMat);
+          body.position.y = 0.44;
+          body.castShadow = true;
+          mascot.add(body);
+
+          const belly = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), getMat(0xfde047));
+          belly.position.set(0, 0.42, 0.32);
+          mascot.add(belly);
+
+          // 頭部
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 20), lionMat);
+          head.position.set(0, 0.96, 0.08);
+          head.castShadow = true;
+          mascot.add(head);
+
+          // 向日葵花瓣型飽滿鬃毛圈 (10 個焦糖赤褐色球體環繞頭部)
+          const maneMat = getMat(0x9a3412, 0.44);
+          for (let i = 0; i < 10; i++) {
+            const angle = (i / 10) * Math.PI * 2;
+            const maneBall = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 14), maneMat);
+            maneBall.position.set(
+              Math.cos(angle) * 0.52,
+              0.96 + Math.sin(angle) * 0.48,
+              -0.08
+            );
+            mascot.add(maneBall);
+          }
+
+          // 圓耳朵
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 14), lionMat);
+            ear.position.set(side * 0.36, 1.28, 0.05);
+            mascot.add(ear);
+          });
+
+          // 暖黃色微凸嘴吻與黑色小三角鼻
+          const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), getMat(0xfde047));
+          muzzle.scale.set(1.2, 0.8, 0.7);
+          muzzle.position.set(0, 0.88, 0.44);
+          mascot.add(muzzle);
+
+          const nose = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.08, 8), noseMat);
+          nose.position.set(0, 0.94, 0.56);
+          nose.rotation.x = Math.PI;
+          mascot.add(nose);
+
+          addSittingFrontPaws(0.12, 0.44, lionColor);
+          addEyesAndBlush(1.02, 0.42, 0.2, 0.068);
+          addTeamBowtie(0.68, 0.44);
+          break;
+        }
+
+        case 'TIGER': { // 🐯 老虎：濃郁赤橘身軀、黑色「王」字條紋、雙圓耳、俏皮尾巴
+          const tigerColor = 0xc2410c; // 飽和赤陶橘
+          const tigerMat = getMat(tigerColor);
+
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.44, 24, 20), tigerMat);
+          body.position.y = 0.44;
+          body.castShadow = true;
+          mascot.add(body);
+
+          const belly = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), whiteMat);
+          belly.position.set(0, 0.42, 0.3);
+          mascot.add(belly);
+
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 20), tigerMat);
+          head.position.set(0, 0.94, 0.08);
+          head.castShadow = true;
+          mascot.add(head);
+
+          // 虎耳
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 14), tigerMat);
+            ear.position.set(side * 0.32, 1.24, 0.08);
+            mascot.add(ear);
+
+            const inner = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), blushMat);
+            inner.position.set(side * 0.32, 1.24, 0.14);
+            mascot.add(inner);
+          });
+
+          // 額頭純黑醒目斑紋
+          const stripeMat = new THREE.MeshBasicMaterial({ color: 0x09090b });
+          [-0.08, 0, 0.08].forEach(yOffset => {
+            const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.03), stripeMat);
+            stripe.position.set(0, 1.15 + yOffset, 0.42);
+            mascot.add(stripe);
+          });
+
+          // 兩側臉頰橫紋
+          [-1, 1].forEach(side => {
+            const cheekStripe = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.03), stripeMat);
+            cheekStripe.rotation.z = side * 0.2;
+            cheekStripe.position.set(side * 0.34, 0.94, 0.38);
+            mascot.add(cheekStripe);
+          });
+
+          // 翹尾巴
+          const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.45, 12), tigerMat);
+          tail.position.set(0, 0.48, -0.42);
+          tail.rotation.x = -Math.PI / 3;
+          mascot.add(tail);
+
+          addSittingFrontPaws(0.12, 0.44, 0xf8fafc);
+          addEyesAndBlush(0.98, 0.44, 0.2, 0.068);
+          addTeamBowtie(0.66, 0.42);
+          break;
+        }
+
+        case 'LEOPARD': { // 🐆 豹 (5)：金黃獵豹、眼角黑色淚痕、立體黑斑花紋、矯捷猛獸
+          const leoColor = 0xeab308; // 亮金色
+          const leoMat = getMat(leoColor);
+          const spotMat = new THREE.MeshBasicMaterial({ color: 0x09090b }); // 純黑花斑
+
+          // 流線身軀
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 22, 18), leoMat);
+          body.position.y = 0.42;
+          body.castShadow = true;
+          mascot.add(body);
+
+          // 白肚腹
+          const belly = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), whiteMat);
+          belly.position.set(0, 0.4, 0.28);
+          mascot.add(belly);
+
+          // 頭部
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 22, 18), leoMat);
+          head.position.set(0, 0.92, 0.08);
+          head.castShadow = true;
+          mascot.add(head);
+
+          // 圓短獵豹耳 (黑邊白心)
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), getMat(0x09090b));
+            ear.position.set(side * 0.28, 1.22, 0.05);
+            mascot.add(ear);
+
+            const inner = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), whiteMat);
+            inner.position.set(side * 0.28, 1.22, 0.1);
+            mascot.add(inner);
+          });
+
+          // 標誌性：眼角延伸向下的黑色淚痕 (Cheetah Tear Stripes)
+          [-1, 1].forEach(side => {
+            const tear = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.18, 0.03), spotMat);
+            tear.position.set(side * 0.14, 0.88, 0.44);
+            tear.rotation.z = -side * 0.15;
+            mascot.add(tear);
+          });
+
+          // 額頭與背部醒目黑斑點
+          [
+            [0, 1.18, 0.4], [-0.16, 1.08, 0.38], [0.16, 1.08, 0.38],
+            [-0.22, 0.58, 0.32], [0.22, 0.58, 0.32], [0, 0.32, 0.38],
+            [-0.18, 0.45, -0.32], [0.18, 0.45, -0.32]
+          ].forEach(([x, y, z]) => {
+            const spot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), spotMat);
+            spot.position.set(x, y, z);
+            mascot.add(spot);
+          });
+
+          // 細長花斑尾巴
+          const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.5, 12), leoMat);
+          tail.position.set(0, 0.45, -0.42);
+          tail.rotation.x = -Math.PI / 3;
+          mascot.add(tail);
+
+          addSittingFrontPaws(0.12, 0.42, leoColor);
+          addEyesAndBlush(0.96, 0.42, 0.18, 0.065);
+          addTeamBowtie(0.66, 0.42);
+          break;
+        }
+
+        case 'WOLF': { // 🐺 野狼：冷冽石墨深灰毛色、挺立狼耳、挺拔神態
+          const wolfColor = 0x334155; // 深石墨灰，對比強烈
+          const wolfMat = getMat(wolfColor);
+
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 22, 18), wolfMat);
+          body.position.y = 0.42;
+          body.castShadow = true;
+          mascot.add(body);
+
+          const chest = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), getMat(0x94a3b8));
+          chest.position.set(0, 0.46, 0.3);
+          mascot.add(chest);
+
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 22, 18), wolfMat);
+          head.position.set(0, 0.92, 0.08);
+          head.castShadow = true;
+          mascot.add(head);
+
+          // 挺立帥氣狼耳
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.34, 12), wolfMat);
+            ear.position.set(side * 0.24, 1.3, 0.04);
+            ear.rotation.z = -side * 0.15;
+            mascot.add(ear);
+
+            const inner = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.24, 8), blushMat);
+            inner.position.set(side * 0.24, 1.28, 0.08);
+            inner.rotation.z = -side * 0.15;
+            mascot.add(inner);
+          });
+
+          // 凸出吻部與黑鼻
+          const snout = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.24, 12), getMat(0x94a3b8));
+          snout.position.set(0, 0.88, 0.44);
+          snout.rotation.x = Math.PI / 2;
+          mascot.add(snout);
+
+          addSittingFrontPaws(0.12, 0.42, 0x94a3b8);
+          addEyesAndBlush(0.98, 0.42, 0.18, 0.065);
+          addTeamBowtie(0.66, 0.42);
+          break;
+        }
+
+        case 'DOG': { // 🐶 狗 (3)：米格魯獵犬小狗、深巧單眼罩斑、特長垂耳、粉紅大舌頭
+          const dogColor = 0xd97706; // 暖焦糖奶茶色
+          const dogMat = getMat(dogColor);
+          const chocoMat = getMat(0x3e1f08, 0.4); // 深黑巧斑塊
+
+          // 身軀與白胸脯
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 22, 18), dogMat);
+          body.position.y = 0.42;
+          body.castShadow = true;
+          mascot.add(body);
+
+          const chest = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 16), whiteMat);
+          chest.position.set(0, 0.44, 0.3);
+          mascot.add(chest);
+
+          // 頭部
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 22, 18), dogMat);
+          head.position.set(0, 0.92, 0.08);
+          head.castShadow = true;
+          mascot.add(head);
+
+          // 標誌性：左眼深巧克力眼斑塊 (Eye Patch)
+          const eyePatch = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), chocoMat);
+          eyePatch.scale.set(1.1, 1.1, 0.5);
+          eyePatch.position.set(-0.16, 0.98, 0.42);
+          mascot.add(eyePatch);
+
+          // 招牌特大深巧克力長垂耳 (垂過下巴，垂耳辨識度滿分！)
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.07, 0.52, 16), chocoMat);
+            ear.position.set(side * 0.38, 0.86, 0.08);
+            ear.rotation.z = side * 0.38;
+            ear.rotation.x = 0.1;
+            mascot.add(ear);
+          });
+
+          // 白吻部與醒目大黑鼻
+          const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 14), whiteMat);
+          muzzle.position.set(0, 0.86, 0.42);
+          mascot.add(muzzle);
+
+          const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), noseMat);
+          nose.position.set(0, 0.92, 0.56);
+          nose.rotation.x = Math.PI;
+          mascot.add(nose);
+
+          // 開心吐出的亮粉紅大舌頭
+          const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.04, 0.16), blushMat);
+          tongue.position.set(0, 0.8, 0.52);
+          tongue.rotation.x = 0.3;
+          mascot.add(tongue);
+
+          addSittingFrontPaws(0.12, 0.42, 0xf8fafc);
+          addEyesAndBlush(0.98, 0.42, 0.18, 0.065);
+          addTeamBowtie(0.66, 0.42);
+          break;
+        }
+
+        case 'CAT': { // 🐱 貓 (2)：純雪白萌貓、三角立耳、細緻黑鬍鬚、粉嫩肉掌 (零度混淆！)
+          const catColor = 0xffffff; // 純雪白！在一片暖色中極致耀眼吸睛
+          const catMat = getMat(catColor, 0.32);
+
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 22, 18), catMat);
+          body.position.y = 0.4;
+          body.castShadow = true;
+          mascot.add(body);
+
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 22, 18), catMat);
+          head.position.set(0, 0.9, 0.08);
+          head.castShadow = true;
+          mascot.add(head);
+
+          // 貓咪高挺小尖耳 (粉紅內耳)
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.26, 12), catMat);
+            ear.position.set(side * 0.22, 1.22, 0.05);
+            mascot.add(ear);
+
+            const inner = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.2, 8), blushMat);
+            inner.position.set(side * 0.22, 1.22, 0.08);
+            mascot.add(inner);
+          });
+
+          // 右耳尖帶俏皮三花橘斑 (Calico patch)
+          const calicoPatch = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), getMat(0xea580c));
+          calicoPatch.position.set(0.24, 1.12, 0.1);
+          mascot.add(calicoPatch);
+
+          // 標誌性：左右立體貓咪黑鬍鬚！
+          const whiskerMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+          [-1, 1].forEach(side => {
+            [-0.03, 0.03].forEach(yOff => {
+              const whisker = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.015, 0.015), whiskerMat);
+              whisker.position.set(side * 0.28, 0.86 + yOff, 0.42);
+              whisker.rotation.z = side * (yOff > 0 ? 0.15 : -0.15);
+              mascot.add(whisker);
+            });
+          });
+
+          // 粉紅小三角貓鼻
+          const catNose = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.06, 8), blushMat);
+          catNose.position.set(0, 0.88, 0.48);
+          catNose.rotation.x = Math.PI;
+          mascot.add(catNose);
+
+          // 豎起微捲的小白尾巴
+          const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.4, 10), catMat);
+          tail.position.set(0, 0.48, -0.36);
+          tail.rotation.x = -Math.PI / 3;
+          mascot.add(tail);
+
+          addSittingFrontPaws(0.12, 0.4, 0xffffff);
+          addEyesAndBlush(0.96, 0.4, 0.17, 0.062);
+          addTeamBowtie(0.64, 0.4);
+          break;
+        }
+
+        case 'RAT': { // 🐭 老鼠：深鐵灰身軀、粉紅巨耳、細捲尾、逆襲大象
+          const ratColor = 0x4b5563; // 深鐵灰，對比鮮明
+          const ratMat = getMat(ratColor);
+
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 18), ratMat);
+          body.position.y = 0.34;
+          body.castShadow = true;
+          mascot.add(body);
+
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 18), ratMat);
+          head.position.set(0, 0.78, 0.08);
+          head.castShadow = true;
+          mascot.add(head);
+
+          // 招牌超萌粉紅大圓耳 (Mickey-style round ears)
+          [-1, 1].forEach(side => {
+            const earGeo = new THREE.CylinderGeometry(0.19, 0.19, 0.03, 20);
+            const ear = new THREE.Mesh(earGeo, ratMat);
+            ear.rotation.x = Math.PI / 2;
+            ear.position.set(side * 0.28, 1.05, 0.03);
+            mascot.add(ear);
+
+            const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.04, 16), blushMat);
+            inner.rotation.x = Math.PI / 2;
+            inner.position.set(side * 0.28, 1.05, 0.045);
+            mascot.add(inner);
+          });
+
+          // 細長捲尾巴
+          const tail = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 8, 16, Math.PI), blushMat);
+          tail.position.set(0, 0.32, -0.34);
+          tail.rotation.y = Math.PI / 2;
+          mascot.add(tail);
+
+          addSittingFrontPaws(0.1, 0.36, ratColor);
+          addEyesAndBlush(0.82, 0.36, 0.14, 0.055);
+          addTeamBowtie(0.55, 0.36);
+          break;
+        }
+      }
+
+      // 雙方棋子正面面向對手（藍隊南向北 Math.PI，紅隊北向南 0，隔河威風對峙）
+      mascot.rotation.y = isBlue ? Math.PI : 0;
+      group.add(mascot);
+
+      const worldPos = gridToWorld(piece.r, piece.c, 0.30);
+      group.position.copy(worldPos);
+
+      group.userData = { piece };
+      piece.mesh = group;
+
+      return group;
+    }
+
+    function syncBoardMeshes() {
+      pieceMeshes.forEach(mesh => removeAndDispose(mesh, scene));
+      pieceMeshes = [];
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const piece = boardState[r][c];
+          if (piece) {
+            const mesh = createPieceMesh(piece);
+            scene.add(mesh);
+            pieceMeshes.push(mesh);
+          }
+        }
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 7. 鬥獸棋規則引擎 (isValidMove)
+    // -------------------------------------------------------------
+    function getValidMoves(piece) {
+      if (!piece) return [];
+      const moves = [];
+      const { r, c, team } = piece;
+
+      const dirs = [
+        { dr: -1, dc: 0 },
+        { dr: 1, dc: 0 },
+        { dr: 0, dc: -1 },
+        { dr: 0, dc: 1 }
+      ];
+
+      for (const { dr, dc } of dirs) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+        if (isDen(nr, nc) === team) continue; // 不能進己方獸穴
+        if (isRiver(nr, nc) && piece.typeKey !== 'RAT') continue; // 只有老鼠可下水
+
+        const target = boardState[nr][nc];
+        if (!target) {
+          moves.push({ r: nr, c: nc, type: isRiver(nr, nc) ? 'swim' : 'move' });
+        } else if (target.team !== team && canCapture(piece, target)) {
+          moves.push({ r: nr, c: nc, type: 'capture', target });
+        }
+      }
+
+      // 獅虎跳河
+      if (piece.canJump) {
+        moves.push(...getJumpMoves(piece));
+      }
+
+      return moves;
+    }
+
+    function getJumpMoves(piece) {
+      const { r, c } = piece;
+      const jumps = [];
+
+      // 縱向躍河 (r=2 ➔ r=6 或 r=6 ➔ r=2, c=1,2,4,5)
+      if ((c === 1 || c === 2 || c === 4 || c === 5)) {
+        if (r === 2 && isRiverClearVertically(c, 3, 5)) {
+          checkAndAddJumpTarget(piece, 6, c, jumps);
+        } else if (r === 6 && isRiverClearVertically(c, 3, 5)) {
+          checkAndAddJumpTarget(piece, 2, c, jumps);
+        }
+      }
+
+      // 橫向躍河 (r=3,4,5)
+      if (r >= 3 && r <= 5) {
+        if (c === 0 && isRiverClearHorizontally(r, 1, 2)) checkAndAddJumpTarget(piece, r, 3, jumps);
+        else if (c === 3 && isRiverClearHorizontally(r, 1, 2)) checkAndAddJumpTarget(piece, r, 0, jumps);
+
+        if (c === 3 && isRiverClearHorizontally(r, 4, 5)) checkAndAddJumpTarget(piece, r, 6, jumps);
+        else if (c === 6 && isRiverClearHorizontally(r, 4, 5)) checkAndAddJumpTarget(piece, r, 3, jumps);
+      }
+
+      return jumps;
+    }
+
+    function isRiverClearVertically(col, startR, endR) {
+      for (let r = startR; r <= endR; r++) {
+        const p = boardState[r][col];
+        if (p && p.typeKey === 'RAT') return false;
+      }
+      return true;
+    }
+
+    function isRiverClearHorizontally(row, startC, endC) {
+      for (let c = startC; c <= endC; c++) {
+        const p = boardState[row][c];
+        if (p && p.typeKey === 'RAT') return false;
+      }
+      return true;
+    }
+
+    function checkAndAddJumpTarget(piece, targetR, targetC, jumps) {
+      if (isDen(targetR, targetC) === piece.team) return;
+      const target = boardState[targetR][targetC];
+      if (!target) {
+        jumps.push({ r: targetR, c: targetC, type: 'jump' });
+      } else if (target.team !== piece.team && canCapture(piece, target)) {
+        jumps.push({ r: targetR, c: targetC, type: 'jump_capture', target });
+      }
+    }
+
+    function canCapture(attacker, defender) {
+      // 陷阱破防：若防守方在攻擊方的陷阱內，任何棋子都能吃它
+      if (isTrap(defender.r, defender.c) === attacker.team) {
+        return true;
+      }
+
+      const attackerInRiver = isRiver(attacker.r, attacker.c);
+      const defenderInRiver = isRiver(defender.r, defender.c);
+
+      if (attackerInRiver && !defenderInRiver) return false; // 水中不能吃陸地
+      if (!attackerInRiver && defenderInRiver) return false; // 陸地不能吃水中
+      if (attackerInRiver && defenderInRiver) return true;  // 水中兩鼠互吃
+
+      // 老鼠吃大象
+      if (attacker.typeKey === 'RAT' && defender.typeKey === 'ELEPHANT') return true;
+      if (attacker.typeKey === 'ELEPHANT' && defender.typeKey === 'RAT') return false;
+
+      // 等級順序
+      return attacker.rank >= defender.rank;
+    }
+
+    // -------------------------------------------------------------
+    // 8. 實心向日葵金黃落點指示器 (無穿透落空問題)
+    // -------------------------------------------------------------
+    function clearHighlights() {
+      highlightMeshes.forEach(mesh => removeAndDispose(mesh, scene));
+      highlightMeshes = [];
+    }
+
+    function showMoveHighlights(moves) {
+      clearHighlights();
+
+      moves.forEach(m => {
+        const inRiver = isRiver(m.r, m.c);
+        const pos = gridToWorld(m.r, m.c, inRiver ? 0.19 : 0.315);
+        const isCapture = m.type.includes('capture');
+        const color = isCapture ? 0xdc2626 : 0xf59e0b; // 濃郁向日葵金黃 / 鮮赤紅
+
+        // 實心圓盤 (高度 0.315，浮在地磚 0.30 之上，杜絕閃爍)
+        const discGeo = new THREE.CircleGeometry(0.74, 32);
+        const discMat = new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.75,
+          side: THREE.DoubleSide,
+          depthWrite: false
+        });
+        const disc = new THREE.Mesh(discGeo, discMat);
+        disc.rotation.x = -Math.PI / 2;
+        disc.position.copy(pos);
+
+        // 發光亮白外環
+        const ringGeo = new THREE.RingGeometry(0.76, 0.88, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.95
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        disc.add(ring);
+
+        disc.userData = { targetMove: m };
+        scene.add(disc);
+        highlightMeshes.push(disc);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 9. 射線拾取互動
+    // -------------------------------------------------------------
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let _pdX = 0, _pdY = 0;
+
+    function onPointerUp(event) {
+      if (Math.hypot(event.clientX - _pdX, event.clientY - _pdY) > 8) return;
+      if (isAnimating || isGameOver || currentTurn !== TEAM_BLUE) return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // 1. 優先檢查落點指示器
+      const hitHighlights = raycaster.intersectObjects(highlightMeshes, true);
+      if (hitHighlights.length > 0) {
+        let obj = hitHighlights[0].object;
+        while (obj && !obj.userData.targetMove) obj = obj.parent;
+        if (obj && obj.userData.targetMove) {
+          executeMove(selectedPiece, obj.userData.targetMove);
+          return;
+        }
+      }
+
+      // 2. 檢查藍隊棋子
+      const hitPieces = raycaster.intersectObjects(pieceMeshes, true);
+      if (hitPieces.length > 0) {
+        let obj = hitPieces[0].object;
+        while (obj && (!obj.userData || !obj.userData.piece)) obj = obj.parent;
+        if (obj && obj.userData.piece) {
+          const piece = obj.userData.piece;
+          if (piece.team === TEAM_BLUE) {
+            selectPiece(piece);
+            return;
+          }
+        }
+      }
+
+      deselectPiece();
+    }
+
+    function selectPiece(piece) {
+      audio.playSelect();
+      selectedPiece = piece;
+
+      const card = document.getElementById('selected-piece-card');
+      const rankTag = document.getElementById('card-rank');
+      const nameTag = document.getElementById('card-name');
+      card.style.display = 'flex';
+      rankTag.textContent = `等級 ${piece.rank}`;
+      nameTag.textContent = `${piece.emoji} ${piece.name}`;
+
+      const inRiver = isRiver(piece.r, piece.c);
+      piece.mesh.position.y = (inRiver ? 0.18 : 0.30) + 0.22;
+
+      const moves = getValidMoves(piece);
+      showMoveHighlights(moves);
+
+      document.getElementById('status-subtitle').textContent = 
+        moves.length > 0 ? `已選取【${piece.name}】，共有 ${moves.length} 個可走位置` : `【${piece.name}】目前暫無可移動路徑`;
+    }
+
+    function deselectPiece() {
+      if (selectedPiece && selectedPiece.mesh) {
+        const inRiver = isRiver(selectedPiece.r, selectedPiece.c);
+        selectedPiece.mesh.position.y = inRiver ? 0.18 : 0.30;
+      }
+      selectedPiece = null;
+      clearHighlights();
+      document.getElementById('selected-piece-card').style.display = 'none';
+      document.getElementById('status-subtitle').textContent = '點選您的棋子查看移動與吃子路徑（向日葵金環）';
+    }
+
+    // -------------------------------------------------------------
+    // 10. 平滑跳躍動畫與吃子
+    // -------------------------------------------------------------
+    // 悔棋紀錄：每一步之前的盤面快照 (棋子資料的副本，不含 3D 模型)
+    let moveHistory = [];
+
+    function snapshotBoard() {
+      return boardState.map(row => row.map(p => (p ? { ...p, mesh: null } : null)));
+    }
+
+    function executeMove(piece, move, onComplete) {
+      moveHistory.push({ board: snapshotBoard(), turn: currentTurn });
+      isAnimating = true;
+      clearHighlights();
+      document.getElementById('selected-piece-card').style.display = 'none';
+
+      const fromR = piece.r;
+      const fromC = piece.c;
+      const toR = move.r;
+      const toC = move.c;
+
+      if (move.type.includes('jump')) audio.playJump();
+      else if (move.type === 'swim') audio.playSplash();
+      else if (move.type.includes('capture')) audio.playCapture();
+      else audio.playMove();
+
+      const capturedTarget = boardState[toR][toC];
+      if (capturedTarget && capturedTarget.mesh) {
+        animateCaptureRemoval(capturedTarget);
+      }
+
+      boardState[fromR][fromC] = null;
+      boardState[toR][toC] = piece;
+      piece.r = toR;
+      piece.c = toC;
+
+      const startPos = gridToWorld(fromR, fromC, isRiver(fromR, fromC) ? 0.18 : 0.30);
+      const endY = isRiver(toR, toC) ? 0.18 : 0.30;
+      const endPos = gridToWorld(toR, toC, endY);
+      const isLeap = move.type.includes('jump');
+      const arcHeight = isLeap ? 4.2 : 1.1;
+      const duration = isLeap ? 650 : 360;
+      const startTime = performance.now();
+
+      const ep = gameEpoch;
+      function updateArc(now) {
+        if (ep !== gameEpoch) return;
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1.0);
+        const ease = Math.sin((progress * Math.PI) / 2);
+
+        const curX = THREE.MathUtils.lerp(startPos.x, endPos.x, ease);
+        const curZ = THREE.MathUtils.lerp(startPos.z, endPos.z, ease);
+        const curY = THREE.MathUtils.lerp(startPos.y, endPos.y, ease) + Math.sin(progress * Math.PI) * arcHeight;
+
+        piece.mesh.position.set(curX, curY, curZ);
+
+        if (progress < 1.0) {
+          requestAnimationFrame(updateArc);
+        } else {
+          piece.mesh.position.copy(endPos);
+          isAnimating = false;
+
+          const trapOwner = isTrap(toR, toC);
+          if (trapOwner && trapOwner !== piece.team) {
+            audio.playTrapAlert();
+          }
+
+          if (checkWinConditions(piece, toR, toC)) return;
+
+          switchTurn();
+          if (onComplete) onComplete();
+        }
+      }
+
+      requestAnimationFrame(updateArc);
+    }
+
+    function animateCaptureRemoval(capturedPiece) {
+      const mesh = capturedPiece.mesh;
+      const startTime = performance.now();
+      const dur = 280;
+
+      function fade(now) {
+        const p = Math.min((now - startTime) / dur, 1.0);
+        mesh.scale.setScalar(1.0 - p * 0.9);
+        mesh.rotation.y += 0.25;
+        if (p < 1.0) {
+          requestAnimationFrame(fade);
+        } else {
+          removeAndDispose(mesh, scene);
+          const idx = pieceMeshes.indexOf(mesh);
+          if (idx !== -1) pieceMeshes.splice(idx, 1);
+        }
+      }
+      requestAnimationFrame(fade);
+    }
+
+    function switchTurn() {
+      selectedPiece = null;
+      currentTurn = (currentTurn === TEAM_BLUE) ? TEAM_RED : TEAM_BLUE;
+
+      const badge = document.getElementById('team-badge');
+      const title = document.getElementById('status-title');
+      const sub = document.getElementById('status-subtitle');
+
+      if (currentTurn === TEAM_BLUE) {
+        badge.className = 'team-badge blue';
+        badge.textContent = '🐾';
+        title.textContent = '輪到藍隊（您）出招！';
+        sub.textContent = '點選您的棋子查看移動與吃子路徑';
+
+        // 藍隊 (玩家) 若已無任何合法步，判紅隊獲勝 (與電腦方的規則對稱)
+        if (!blueHasMove(() => true)) {
+          triggerVictory(TEAM_RED, '藍隊棋子已無路可走，紅隊獲勝！');
+        }
+      } else {
+        badge.className = 'team-badge red';
+        badge.textContent = '🤖';
+        title.textContent = '紅隊（電腦 AI）思考中...';
+        sub.textContent = '森林之王電腦正計算跳河突襲與最優進軍路線';
+        later(makeAIMove, 550);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 11. 啟發式電腦 AI (Red Team)
+    // -------------------------------------------------------------
+    function makeAIMove() {
+      if (isGameOver || currentTurn !== TEAM_RED) return;
+
+      const allMoves = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const piece = boardState[r][c];
+          if (piece && piece.team === TEAM_RED) {
+            const moves = getValidMoves(piece);
+            moves.forEach(m => allMoves.push({ piece, move: m }));
+          }
+        }
+      }
+
+      if (allMoves.length === 0) {
+        triggerVictory(TEAM_BLUE, '紅隊棋子已無路可走，藍隊獲勝！');
+        return;
+      }
+
+      // ⭐ 小獅子：25% 機率隨便走一步，讓初學者有機會
+      if (aiDifficulty === 1 && Math.random() < 0.25) {
+        const pick = allMoves[Math.floor(Math.random() * allMoves.length)];
+        executeMove(pick.piece, pick.move);
+        return;
+      }
+
+      // ⭐⭐⭐ 森林之王：多想一步，考慮玩家最好的回應 (兩層搜尋)
+      if (aiDifficulty === 3) {
+        const best = searchBestMove(allMoves);
+        executeMove(best.piece, best.move);
+        return;
+      }
+
+      let bestCandidate = null;
+      let highestScore = -Infinity;
+
+      allMoves.forEach(candidate => {
+        const score = evaluateAIMove(candidate.piece, candidate.move);
+        if (score > highestScore) {
+          highestScore = score;
+          bestCandidate = candidate;
+        }
+      });
+
+      executeMove(bestCandidate.piece, bestCandidate.move);
+    }
+
+    // ---- 電腦 AI 輔助：模擬一步棋後觀察藍隊 (玩家) 的威脅 ----
+    const AI_PIECE_VALUES = { ELEPHANT: 950, LION: 750, TIGER: 650, LEOPARD: 520, WOLF: 420, DOG: 320, CAT: 220, RAT: 600 };
+
+    // 暫時把 piece 走到 move 的位置，執行 fn 後一定還原盤面
+    function simulateMove(piece, move, fn) {
+      const fromR = piece.r, fromC = piece.c;
+      const captured = boardState[move.r][move.c];
+      boardState[fromR][fromC] = null;
+      boardState[move.r][move.c] = piece;
+      piece.r = move.r;
+      piece.c = move.c;
+      try {
+        return fn();
+      } finally {
+        piece.r = fromR;
+        piece.c = fromC;
+        boardState[fromR][fromC] = piece;
+        boardState[move.r][move.c] = captured;
+      }
+    }
+
+    // 目前盤面上，藍隊是否有任何一步符合 test(move)
+    function blueHasMove(test) {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const p = boardState[r][c];
+          if (p && p.team === TEAM_BLUE && getValidMoves(p).some(test)) return true;
+        }
+      }
+      return false;
+    }
+
+    function blueCanCapture(redPiece) {
+      return blueHasMove(m => m.target === redPiece);
+    }
+
+    function blueCanEnterRedDen() {
+      return blueHasMove(m => m.r === 0 && m.c === 3);
+    }
+
+    function evaluateAIMove(piece, move) {
+      const targetR = move.r;
+      const targetC = move.c;
+
+      // 佔領獸穴獲勝
+      if (targetR === 8 && targetC === 3) return 100000;
+
+      let score = 0;
+      const target = boardState[targetR][targetC];
+      if (target && target.team === TEAM_BLUE) {
+        const pieceValues = { ELEPHANT: 950, LION: 750, TIGER: 650, LEOPARD: 520, WOLF: 420, DOG: 320, CAT: 220, RAT: 600 };
+        score += (pieceValues[target.typeKey] || 200) * 2.2;
+      }
+
+      // 距離推進
+      const distToDen = Math.abs(targetR - 8) + Math.abs(targetC - 3);
+      score += (16 - distToDen) * 12;
+
+      if (move.type.includes('jump')) score += 85;
+      if (piece.typeKey === 'RAT' && isRiver(targetR, targetC)) score += 50;
+
+      const trapOwner = isTrap(targetR, targetC);
+      if (trapOwner === TEAM_BLUE && !target) score -= 250;
+
+      // ⭐⭐ 森林獵手：不把棋子送給對方吃、正被威脅的棋子會逃、對方下一步能攻入獸穴時優先阻擋
+      if (aiDifficulty >= 2) {
+        const myValue = AI_PIECE_VALUES[piece.typeKey] || 200;
+        const threatenedNow = blueCanCapture(piece);
+        const after = simulateMove(piece, move, () => ({
+          denLost: blueCanEnterRedDen(),
+          attacked: blueCanCapture(piece)
+        }));
+        if (after.denLost) score -= 50000;
+        if (after.attacked) score -= myValue * 1.6;
+        if (threatenedNow && !after.attacked) score += myValue;
+      }
+
+      score += Math.random() * 8;
+      return score;
+    }
+
+    // ---- ⭐⭐⭐ 森林之王：兩層搜尋 ----
+    // 盤面分數 (紅隊的角度)：棋子價值差 + 紅隊往前推進 - 藍隊逼近紅隊獸穴；分出勝負時給極大值
+    const WIN_SCORE = 100000;
+
+    function evaluateBoardForRed() {
+      if (boardState[0][3] && boardState[0][3].team === TEAM_BLUE) return -WIN_SCORE;
+      if (boardState[8][3] && boardState[8][3].team === TEAM_RED) return WIN_SCORE;
+
+      let score = 0, redCount = 0, blueCount = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const p = boardState[r][c];
+          if (!p) continue;
+          const value = AI_PIECE_VALUES[p.typeKey] || 200;
+          if (p.team === TEAM_RED) {
+            redCount++;
+            const distToBlueDen = Math.abs(r - 8) + Math.abs(c - 3);
+            score += value + r * 10 + (distToBlueDen <= 2 ? 120 : 0);
+          } else {
+            blueCount++;
+            const distToRedDen = Math.abs(r - 0) + Math.abs(c - 3);
+            score -= value + (8 - r) * 10 + (distToRedDen <= 2 ? 120 : 0);
+          }
+        }
+      }
+      if (blueCount === 0) return WIN_SCORE;
+      if (redCount === 0) return -WIN_SCORE;
+      return score;
+    }
+
+    function listMoves(team) {
+      const list = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const p = boardState[r][c];
+          if (p && p.team === team) getValidMoves(p).forEach(m => list.push({ piece: p, move: m }));
+        }
+      }
+      return list;
+    }
+
+    // 對每一步紅棋，假設玩家會回應最好的一步，挑出「最壞情況最好」的走法
+    function searchBestMove(allMoves) {
+      let best = allMoves[0];
+      let bestValue = -Infinity;
+
+      allMoves.forEach(candidate => {
+        let value;
+        if (candidate.move.r === 8 && candidate.move.c === 3) {
+          value = WIN_SCORE * 2; // 直接攻入獸穴
+        } else {
+          value = simulateMove(candidate.piece, candidate.move, () => {
+            const replies = listMoves(TEAM_BLUE);
+            if (replies.length === 0) return WIN_SCORE; // 玩家無路可走
+            let worst = Infinity;
+            for (const reply of replies) {
+              const v = simulateMove(reply.piece, reply.move, evaluateBoardForRed);
+              if (v < worst) worst = v;
+              if (worst <= -WIN_SCORE) break;
+            }
+            return worst;
+          });
+        }
+        value += Math.random() * 6; // 同分時隨機，避免每局都一樣
+        if (value > bestValue) {
+          bestValue = value;
+          best = candidate;
+        }
+      });
+      return best;
+    }
+
+    // -------------------------------------------------------------
+    // 12. 勝負判定
+    // -------------------------------------------------------------
+    function checkWinConditions(piece, toR, toC) {
+      if (toR === 0 && toC === 3 && piece.team === TEAM_BLUE) {
+        triggerVictory(TEAM_BLUE, '藍隊神勇攻克敵方獸穴，獲得森林棋王稱號！🎉');
+        return true;
+      }
+      if (toR === 8 && toC === 3 && piece.team === TEAM_RED) {
+        triggerVictory(TEAM_RED, '紅隊攻入了藍隊獸穴，再接再厲！💪');
+        return true;
+      }
+
+      let blueCount = 0;
+      let redCount = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const p = boardState[r][c];
+          if (p) {
+            if (p.team === TEAM_BLUE) blueCount++;
+            else redCount++;
+          }
+        }
+      }
+
+      if (blueCount === 0) {
+        triggerVictory(TEAM_RED, '藍隊棋子已被全數殲滅！');
+        return true;
+      }
+      if (redCount === 0) {
+        triggerVictory(TEAM_BLUE, '紅隊棋子已被全數降伏，大獲全勝！🎉');
+        return true;
+      }
+
+      return false;
+    }
+
+    function triggerVictory(winner, desc) {
+      isGameOver = true;
+      audio.playVictory();
+
+      const modal = document.getElementById('victory-modal');
+      const icon = document.getElementById('vic-icon');
+      const title = document.getElementById('vic-title');
+      const descEl = document.getElementById('vic-desc');
+
+      if (winner === TEAM_BLUE) {
+        icon.textContent = '🏆';
+        title.textContent = '🎉 藍隊大獲全勝！';
+        title.style.color = '#0284c7';
+        if (window.confetti) {
+          window.confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+          setTimeout(() => window.confetti({ particleCount: 90, angle: 60, spread: 55, origin: { x: 0 } }), 250);
+          setTimeout(() => window.confetti({ particleCount: 90, angle: 120, spread: 55, origin: { x: 1 } }), 400);
+        }
+      } else {
+        icon.textContent = '🤖';
+        title.textContent = '紅隊電腦獲勝！';
+        title.style.color = '#dc2626';
+      }
+
+      descEl.textContent = desc;
+      modal.classList.add('active');
+    }
+
+    // -------------------------------------------------------------
+    // 13. 重啟與重置
+    // -------------------------------------------------------------
+    function restartGame() {
+      gameEpoch++;
+      document.getElementById('victory-modal').classList.remove('active');
+      document.getElementById('rules-modal').classList.remove('active');
+      isGameOver = false;
+      isAnimating = false;
+      currentTurn = TEAM_BLUE;
+      selectedPiece = null;
+      clearHighlights();
+
+      document.getElementById('team-badge').className = 'team-badge blue';
+      document.getElementById('team-badge').textContent = '🐾';
+      document.getElementById('status-title').textContent = '輪到藍隊（您）出招！';
+      document.getElementById('status-subtitle').textContent = '點選您的棋子查看移動與吃子路徑（向日葵金環）';
+      document.getElementById('selected-piece-card').style.display = 'none';
+
+      boardState = createInitialBoardState();
+      moveHistory = [];
+      syncBoardMeshes();
+      resetCamera();
+    }
+
+    // 悔棋：退回到玩家上一次出手之前 (一次退回玩家與電腦各一步)
+    function undoMove() {
+      if (isAnimating || isGameOver || currentTurn !== TEAM_BLUE) return;
+
+      let restored = null;
+      while (moveHistory.length > 0) {
+        const item = moveHistory.pop();
+        if (item.turn === TEAM_BLUE) {
+          restored = item;
+          break;
+        }
+      }
+      if (!restored) {
+        document.getElementById('status-subtitle').textContent = '已經回到開局，無法再悔棋囉！';
+        return;
+      }
+
+      gameEpoch++; // 讓尚未執行的電腦出手與動畫失效
+      selectedPiece = null;
+      clearHighlights();
+      document.getElementById('selected-piece-card').style.display = 'none';
+
+      // 用快照建立新的棋子物件 (快照本身保持乾淨，不被之後的對局改動)
+      boardState = restored.board.map(row => row.map(p => (p ? { ...p } : null)));
+      syncBoardMeshes();
+
+      audio.playSelect();
+      document.getElementById('status-title').textContent = '輪到藍隊（您）出招！';
+      document.getElementById('status-subtitle').textContent = '已悔棋一步，請重新思考您的走法 🐾';
+    }
+
+    // -------------------------------------------------------------
+    // 14. 渲染迴圈
+    // -------------------------------------------------------------
+    function animate() {
+      // 有變化才重繪 (見 common.js)；鬥獸棋沒有需要持續播放的效果
+      startRenderLoop({ renderer, scene, camera, controls });
+    }
+
+    // -------------------------------------------------------------
+    // 15. DOM 綁定
+    // -------------------------------------------------------------
+    document.getElementById('btn-sound').addEventListener('click', () => {
+      audio.enabled = !audio.enabled;
+      document.getElementById('sound-icon').textContent = audio.enabled ? '🔊' : '🔇';
+    });
+
+    document.getElementById('btn-camera').addEventListener('click', resetCamera);
+    document.getElementById('btn-diff').addEventListener('click', () => {
+      aiDifficulty = (aiDifficulty % 3) + 1;
+      document.getElementById('btn-diff').textContent = DIFFICULTY_NAMES[aiDifficulty - 1];
+    });
+    document.getElementById('btn-undo').addEventListener('click', undoMove);
+    document.getElementById('btn-restart').addEventListener('click', restartGame);
+    document.getElementById('btn-play-again').addEventListener('click', restartGame);
+
+    const rulesModal = document.getElementById('rules-modal');
+    document.getElementById('btn-rules').addEventListener('click', () => rulesModal.classList.add('active'));
+    document.getElementById('btn-close-rules').addEventListener('click', () => rulesModal.classList.remove('active'));
+    document.getElementById('btn-rules-ok').addEventListener('click', () => rulesModal.classList.remove('active'));
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // T04：檢查 THREE 與 WebGL 是否可用
+      (function checkEnv() {
+        const screen = document.getElementById('load-screen');
+        const msg = document.getElementById('load-msg');
+        if (typeof THREE === 'undefined' || typeof startRenderLoop === 'undefined') {
+          msg.textContent = '😿 遊戲無法載入，請重新整理頁面或告訴老師';
+          return;
+        }
+        const c = document.createElement('canvas');
+        if (!c.getContext('webgl') && !c.getContext('experimental-webgl')) {
+          msg.textContent = '😿 這台電腦不支援 3D 顯示，請告訴老師';
+          return;
+        }
+        screen.style.display = 'none';
+      })();
+      initThree();
+      restartGame();
+    });
+  </script>
+</body>
+</html>

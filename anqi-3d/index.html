@@ -1,0 +1,2604 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D 萌寵暗棋 (Taiwanese Banqi 3D) - 阿喵老師的棋藝教室</title>
+
+  <!-- Three.js, OrbitControls & Canvas Confetti (CDN Zero-asset 架構) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #dc2626;
+      --primary-dark: #991b1b;
+      --accent: #f59e0b;
+      --bg-dark: #090d16;
+      --card-bg: rgba(15, 23, 42, 0.88);
+      --border-color: rgba(255, 255, 255, 0.14);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #canvas-container, #canvas-container canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    /* 頂部導航欄 (Top Bar) */
+    .top-bar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .brand-pill {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 7px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+      pointer-events: auto;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .brand-icon {
+      font-size: 22px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #fef08a 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      white-space: nowrap;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn-pill {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 7px 14px;
+      min-height: 44px;
+      box-sizing: border-box;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+      white-space: nowrap;
+    }
+
+    .btn-pill:hover {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: rgba(245, 158, 11, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .btn-pill.active {
+      background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+      border-color: #f87171;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(220, 38, 38, 0.5);
+    }
+
+    @media (max-width: 850px) {
+      .top-bar {
+        padding: 8px 12px;
+        gap: 6px;
+      }
+      .brand-pill {
+        padding: 6px 12px;
+        gap: 6px;
+      }
+      .brand-title {
+        font-size: 13px;
+      }
+      .top-actions {
+        gap: 5px;
+      }
+      .btn-mode-tab {
+        padding: 5px 8px;
+        font-size: 12px;
+      }
+      .btn-pill {
+        padding: 5px 9px;
+        font-size: 12px;
+        gap: 4px;
+      }
+    }
+
+    /* 頂部三模式獨立按鈕群組 (Segmented Mode Tab Group) */
+    .mode-tab-group {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 9999px;
+      padding: 3px;
+      gap: 3px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .btn-mode-tab {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid transparent;
+      padding: 6px 13px;
+      min-height: 44px;
+      box-sizing: border-box;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .btn-mode-tab:hover {
+      color: #f1f5f9;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-mode-tab .tab-icon {
+      font-size: 14px;
+    }
+
+    /* 經典單吃 Active 狀態 */
+    .btn-mode-tab.active-classic {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    }
+
+    /* 熱血連吃 Active 狀態 */
+    .btn-mode-tab.active-chain {
+      background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+      color: #ffffff;
+      border-color: #fdba74;
+      box-shadow: 0 0 14px rgba(249, 115, 22, 0.55);
+    }
+
+    /* 黑暗連吃 Active 狀態 */
+    .btn-mode-tab.active-dark {
+      background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+      color: #ffffff;
+      border-color: #d8b4fe;
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.55);
+    }
+
+    .mode-btn {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      border-color: #a78bfa;
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+    }
+
+    /* 左右兩側戰況儀表板 (Game Scoreboards) */
+    .hud-panel {
+      position: absolute;
+      top: var(--hud-top, 68px);
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hud-panel.left {
+      left: 14px;
+    }
+
+    .hud-panel.right {
+      right: 14px;
+      align-items: flex-end;
+    }
+
+    .score-card {
+      pointer-events: auto;
+      background: var(--card-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 10px 14px;
+      min-width: 175px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .score-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 5px;
+    }
+
+    .camp-badge {
+      font-size: 13px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .camp-badge.red {
+      background: rgba(220, 38, 38, 0.25);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+    }
+
+    .camp-badge.black {
+      background: rgba(100, 116, 139, 0.3);
+      border: 1px solid #94a3b8;
+      color: #e2e8f0;
+    }
+
+    .alive-count {
+      font-size: 18px;
+      font-weight: 800;
+      color: #f8fafc;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 棋子陣亡與存活小圓徽章列表 */
+    .piece-roster {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-width: 180px;
+    }
+
+    .roster-chip {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255,255,255,0.2);
+      transition: all 0.3s ease;
+    }
+
+    .roster-chip.red-alive {
+      background: #dc2626;
+      color: #ffffff;
+      border-color: #fca5a5;
+    }
+
+    .roster-chip.black-alive {
+      background: #1e293b;
+      color: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .roster-chip.dead {
+      background: rgba(15, 23, 42, 0.5);
+      color: #475569;
+      border-color: rgba(255,255,255,0.06);
+      text-decoration: line-through;
+      transform: scale(0.85);
+      opacity: 0.45;
+    }
+
+    /* 底部狀態與操作列 (Bottom HUD) */
+    .bottom-bar {
+      position: absolute;
+      bottom: 16px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .turn-card {
+      pointer-events: auto;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 9px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .turn-text {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .unrevealed-badge {
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 3px 8px;
+      border-radius: 9999px;
+    }
+
+    .bottom-actions {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .btn-end-chain {
+      background: linear-gradient(135deg, #ea580c 0%, #f97316 100%) !important;
+      border-color: #fdba74 !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      box-shadow: 0 0 16px rgba(249, 115, 22, 0.5) !important;
+      animation: pulseChainBtn 1.5s infinite;
+    }
+
+    @keyframes pulseChainBtn {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    /* 浮動提示訊息 (Toast) */
+    #toast-box {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid #f59e0b;
+      color: #fef08a;
+      padding: 12px 28px;
+      border-radius: 9999px;
+      font-size: 15px;
+      font-weight: 700;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      z-index: 100;
+      pointer-events: none;
+      display: none;
+      animation: toastPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes toastPop {
+      0% { opacity: 0; transform: translate(-50%, -40%) scale(0.9); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+
+    /* 模態彈窗 (Rules & Victory Modals) */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 15, 29, 0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-window {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      max-width: 540px;
+      width: 100%;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 12px;
+    }
+
+    .modal-body {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: 60vh;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .rule-hierarchy {
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rule-tag {
+      display: inline-block;
+      background: #f59e0b;
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+    }
+
+    .mode-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mode-card.highlight {
+      border-color: #a855f7;
+      background: rgba(168, 85, 247, 0.08);
+    }
+
+    .btn-large {
+      background: linear-gradient(135deg, #ea580c 0%, #f59e0b 100%);
+      color: #ffffff;
+      border: none;
+      padding: 12px 24px;
+      min-height: 44px;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .btn-large:hover {
+      filter: brightness(1.1);
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <!-- T04：載入遮罩，預設顯示；主程式確認 THREE 與 WebGL 正常後隱藏 -->
+  <div id="load-screen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1e293b;color:#fff;font-family:sans-serif;font-size:1.1rem;gap:1rem;">
+    <div id="load-msg">⏳ 遊戲載入中…</div>
+  </div>
+  <div id="canvas-container"></div>
+
+  <!-- 頂部導航 -->
+  <header class="top-bar">
+    <div class="brand-pill">
+      <span class="brand-icon">🐱</span>
+      <span class="brand-title">阿喵老師的暗棋教室</span>
+    </div>
+    <div class="top-actions">
+      <!-- 玩法模式切換按鈕 (三款模式循環切換) -->
+      <!-- 三大模式獨立按鈕群組 (學生可直接點選切換) -->
+      <div class="mode-tab-group" id="mode-tab-group">
+        <button class="btn-mode-tab" id="tab-classic" onclick="onModeTabClick('CLASSIC')">
+          <span class="tab-icon">⚔️</span>
+          <span class="tab-label">經典單吃</span>
+        </button>
+        <button class="btn-mode-tab active-chain" id="tab-chain" onclick="onModeTabClick('CHAIN')">
+          <span class="tab-icon">🔥</span>
+          <span class="tab-label">熱血連吃</span>
+        </button>
+        <button class="btn-mode-tab" id="tab-dark" onclick="onModeTabClick('DARK_CHAIN')">
+          <span class="tab-icon">🕶️</span>
+          <span class="tab-label">黑暗連吃</span>
+        </button>
+      </div>
+      <button class="btn-pill" id="btn-diff" onclick="cycleAIDifficulty()">⭐ 幼幼貓</button>
+      <button class="btn-pill active" id="btn-sound" onclick="toggleAudio()">🔊 音效</button>
+      <button class="btn-pill" onclick="openRulesModal()">📜 規則</button>
+      <button class="btn-pill" onclick="resetGame()">🔄 重開</button>
+    </div>
+  </header>
+
+  <!-- 戰況與剩餘棋子儀表板 -->
+  <div class="hud-panel left">
+    <div class="score-card">
+      <div class="score-header">
+        <span class="camp-badge red" id="badge-red">紅方 (待定)</span>
+        <span class="alive-count" id="count-red">16 / 16</span>
+      </div>
+      <div class="piece-roster" id="roster-red"></div>
+    </div>
+  </div>
+
+  <div class="hud-panel right">
+    <div class="score-card">
+      <div class="score-header">
+        <span class="camp-badge black" id="badge-black">黑方 (待定)</span>
+        <span class="alive-count" id="count-black">16 / 16</span>
+      </div>
+      <div class="piece-roster" id="roster-black"></div>
+    </div>
+  </div>
+
+  <!-- 底部操控狀態 -->
+  <footer class="bottom-bar">
+    <div class="turn-card">
+      <span class="turn-text" id="turn-indicator" style="color: #fef08a;">🐾 開局！請翻開任意一顆暗棋</span>
+      <span class="unrevealed-badge" id="unrevealed-count">暗棋剩餘: 32</span>
+    </div>
+    <div class="bottom-actions">
+      <!-- 連吃時顯示的結束連吃按鈕 -->
+      <button class="btn-pill btn-end-chain" id="btn-end-chain" style="display: none;" onclick="playerEndChainEating()">⏹️ 結束連吃</button>
+      <button class="btn-pill" onclick="resetCameraView()">🎯 視角重設</button>
+    </div>
+  </footer>
+
+  <!-- 浮動訊息框 -->
+  <div id="toast-box"></div>
+
+  <!-- 規則彈窗 (Rules Modal) -->
+    <!-- 切換玩法模式確認彈窗 (Mode Switch Confirmation Modal) -->
+  <div class="modal-overlay" id="mode-confirm-modal" onclick="closeModeConfirmModal(event)">
+    <div class="modal-window" style="max-width: 440px;" onclick="event.stopPropagation()">
+      <div class="modal-title">
+        <span>🔄 切換玩法模式確認</span>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <div style="font-size: 42px; margin-bottom: 8px;">⚠️</div>
+        <p style="font-size: 15px; color: #f1f5f9; line-height: 1.6; margin-bottom: 12px;">
+          當前對局正在進行中！<br>
+          切換為【<strong id="confirm-mode-name" style="color: #f59e0b;"></strong>】將會重新洗牌並開新局。
+        </p>
+        <div style="font-size: 13px; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;" id="confirm-mode-desc">
+        </div>
+        <p style="font-size: 14px; color: #fda4af; font-weight: 700;">
+          確定要放棄當前棋局並重新開局嗎？
+        </p>
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: center; margin-top: 6px;">
+        <button class="btn-pill" style="padding: 10px 20px; font-size: 14px; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);" onclick="cancelModeSwitch()">
+          ✖️ 繼續當前對局
+        </button>
+        <button class="btn-pill" style="padding: 10px 22px; font-size: 14px; background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); border-color: #fdba74; box-shadow: 0 0 14px rgba(249, 115, 22, 0.45);" onclick="confirmModeSwitch()">
+          🔄 確定重開新局
+        </button>
+      </div>
+    </div>
+  </div>
+
+<div class="modal-overlay" id="rules-modal" onclick="closeRulesModal(event)">
+    <div class="modal-window" onclick="event.stopPropagation()">
+      <div class="modal-title">
+        <span>📜 台灣暗棋三大玩法規則說明</span>
+      </div>
+      <div class="modal-body">
+        <div class="rule-hierarchy">
+          <div><span class="rule-tag">階級大小</span><strong>帥 (將) ＞ 仕 (士) ＞ 相 (象) ＞ 俥 (車) ＞ 傌 (馬) ＞ 炮 (包) ＞ 兵 (卒)</strong></div>
+          <div style="font-size: 13px; color: #94a3b8;">* 相同階級可以互吃。大階級可吃平級或較小階級。兵卒剋帥將，帥將不可吃兵卒。炮需隔一子跳吃任何階級。</div>
+          <div style="font-size: 13px; color: #94a3b8;">* 和棋：連續 50 步都沒有吃子或翻棋，判定和棋。</div>
+        </div>
+
+        <div>
+          <strong style="color: #f59e0b;">🎮 本遊戲三大玩法模式：</strong>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+            <div class="mode-card">
+              <strong>⚔️ 經典單吃 (Standard)：</strong>
+              <span style="font-size: 13px; color: #cbd5e1;">每回合只能進行【翻 1 棋】或【走／吃 1 子】，吃完後立即換對手行動。適合謹慎佈局的傳統弈者。</span>
+            </div>
+            <div class="mode-card">
+              <strong style="color: #f97316;">🔥 熱血連吃 (Chain Capture)：</strong>
+              <span style="font-size: 13px; color: #cbd5e1;">只要吃子後，該棋子周圍（或炮跳）仍有符合階級的<strong>敵方明棋</strong>，即可在<strong>同一回合內連續狂吃</strong>！可隨時按「結束連吃」見好就收。</span>
+            </div>
+            <div class="mode-card highlight">
+              <strong style="color: #c084fc;">🕶️ 黑暗連吃 (Dark Chain Capture / 盲吃連吃)：</strong>
+              <span style="font-size: 13px; color: #cbd5e1;">不用翻棋！<strong>直接對暗棋發動盲吃</strong>！當場翻開判定：
+                <ul style="padding-left: 18px; margin-top: 4px;">
+                  <li>若為吃得下的敵子：成功擊破並可<strong>繼續連吃</strong>！</li>
+                  <li>若踢到鐵板（對方更大）：該暗棋翻開留在原地，盲吃失敗，<strong>連吃中斷換人</strong>！</li>
+                  <li>若翻出己方友軍：該暗棋留在原地，<strong>連吃中斷換人</strong>！</li>
+                </ul>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-large" onclick="closeRulesModal()">我瞭解了！開始對弈 🐾</button>
+    </div>
+  </div>
+
+  <!-- 勝利結算彈窗 (Victory Modal) -->
+  <div class="modal-overlay" id="victory-modal">
+    <div class="modal-window">
+      <div class="modal-title">
+        <span id="victory-title">🎉 旗開得勝！你贏了！</span>
+      </div>
+      <div class="modal-body">
+        <p id="victory-msg" style="font-size: 15px;"></p>
+        <div style="background: rgba(255,255,255,0.05); padding: 14px; border-radius: 12px; text-align: center; font-size: 18px; font-weight: 800; color: #f59e0b;" id="victory-scores"></div>
+      </div>
+      <button class="btn-large" onclick="closeVictoryAndRestart()">再來一局！🐾</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       3D WebGL 引擎、音效合成與暗棋對弈邏輯
+       ========================================================================== -->
+  <!-- 五款遊戲共用的程式 (局號、資源釋放、有變化才重繪) -->
+  <script src="../common.js"></script>
+  <script>
+    /* ==========================================================================
+       1. 遊戲基礎常數與狀態變數
+       ========================================================================== */
+    const ROWS = 4;
+    const COLS = 8;
+    const CELL_SIZE = 1.45;
+    const PIECE_Y = 0.14;       // 棋子靜止高度
+    const PIECE_RADIUS = 0.54;  // 棋子半徑
+    const PIECE_HEIGHT = 0.18;  // 棋子厚度
+
+    // 玩法模式設定：'CLASSIC'(經典單吃) | 'CHAIN'(熱血連吃) | 'DARK_CHAIN'(黑暗連吃)
+    let gameMode = 'CHAIN';
+    const MODE_CONFIG = {
+      'CLASSIC':    { name: '⚔️ 經典單吃', desc: '每回合限吃 1 顆' },
+      'CHAIN':      { name: '🔥 熱血連吃', desc: '吃明棋後可連續狂吃' },
+      'DARK_CHAIN': { name: '🕶️ 黑暗連吃', desc: '可盲吃暗棋＋連續連吃' }
+    };
+
+    // 連吃狀態變數
+    let isChainEating = false;
+    let chainComboCount = 0;
+
+    // 棋子定義清單 (紅方 16 顆、黑方 16 顆，共 32 顆)
+    const PIECE_DEFS = [
+      // 紅方 (Red)
+      { color: 'RED', name: '帥', rank: 7, isCannon: false, count: 1 },
+      { color: 'RED', name: '仕', rank: 6, isCannon: false, count: 2 },
+      { color: 'RED', name: '相', rank: 5, isCannon: false, count: 2 },
+      { color: 'RED', name: '俥', rank: 4, isCannon: false, count: 2 },
+      { color: 'RED', name: '傌', rank: 3, isCannon: false, count: 2 },
+      { color: 'RED', name: '炮', rank: 2, isCannon: true,  count: 2 },
+      { color: 'RED', name: '兵', rank: 1, isCannon: false, count: 5 },
+      // 黑方 (Black)
+      { color: 'BLACK', name: '將', rank: 7, isCannon: false, count: 1 },
+      { color: 'BLACK', name: '士', rank: 6, isCannon: false, count: 2 },
+      { color: 'BLACK', name: '象', rank: 5, isCannon: false, count: 2 },
+      { color: 'BLACK', name: '車', rank: 4, isCannon: false, count: 2 },
+      { color: 'BLACK', name: '馬', rank: 3, isCannon: false, count: 2 },
+      { color: 'BLACK', name: '包', rank: 2, isCannon: true,  count: 2 },
+      { color: 'BLACK', name: '卒', rank: 1, isCannon: false, count: 5 }
+    ];
+
+    // 棋盤邏輯陣列 (4x8)
+    let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    let pieces = []; // 32 顆棋子物件
+
+    // 陣營與回合狀態
+    let playerColor = null; // 首翻後確定 ('RED' 或 'BLACK')
+    let aiColor = null;
+    let currentTurn = 'PLAYER'; // 'PLAYER' 或 'AI'
+    let selectedPiece = null;
+    let legalMoves = [];
+    let isGameOver = false;
+    let isAnimating = false;
+    let audioEnabled = true;
+    let moveHistory = [];
+    let noProgressCount = 0;   // 連續沒有吃子或翻棋的步數 (和棋判定用)
+    const DRAW_LIMIT = 50;     // 達到這個步數判定和棋
+    // gameEpoch、later() 定義在 common.js
+    // fireConfetti() 定義在 common.js
+
+    // AI 難度 (1: 幼幼貓, 2: 戰術阿喵, 3: 棋聖老喵)
+    let aiDifficulty = 1;
+    const DIFFICULTY_NAMES = ['⭐ 幼幼貓', '⭐⭐ 戰術阿喵', '⭐⭐⭐ 棋聖老喵'];
+
+    // 3D Three.js 物件
+    let scene, camera, renderer, controls;
+    let boardGroup;
+    let reticleGroup = null; // 合法走步標記光圈
+    let raycaster = new THREE.Raycaster();
+    let mouse = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+
+    /* ==========================================================================
+       2. Web Audio API 純程式擬真音效合成引擎 (無任何外部 MP3 遺失風險)
+       ========================================================================== */
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type, param = 1.0) {
+      if (!audioEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'flip') {
+        // 翻棋木質敲擊聲
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(360, now);
+        osc.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      }
+      else if (type === 'select' || type === 'click' || type === 'turn') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, now);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.07);
+      }
+      else if (type === 'move') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(240, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+      }
+      else if (type === 'capture') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.exponentialRampToValueAtTime(60, now + 0.15);
+        gain.gain.setValueAtTime(0.7, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      }
+      else if (type === 'cannon') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.22);
+        gain.gain.setValueAtTime(0.8, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.24);
+      }
+      else if (type === 'chain') {
+        // 連吃 Combo 遞增琶音！
+        const pitchMul = param; // 1.0, 1.2, 1.4...
+        const base = 440 * pitchMul;
+        [base, base * 1.25, base * 1.5].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+          gain.gain.setValueAtTime(0.25, now + idx * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2 + idx * 0.04);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.04);
+          osc.stop(now + 0.25 + idx * 0.04);
+        });
+      }
+      else if (type === 'buzzer') {
+        // 盲吃踢到鐵板 低沉鋸齒蜂鳴音
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.setValueAtTime(100, now + 0.12);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+      else if (type === 'friendly') {
+        // 翻出友軍 柔和叮咚雙音
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(554.37, now + 0.09);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.26);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      }
+      else if (type === 'win') {
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+          gain.gain.setValueAtTime(0.35, now + idx * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55 + idx * 0.09);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.09);
+          osc.stop(now + 0.65 + idx * 0.09);
+        });
+      }
+    }
+
+    /* ==========================================================================
+       3. 程序化高解析度紋理生成 (Procedural Textures)
+       ========================================================================== */
+    // 1. 金絲檜木/南美柚木棋盤面材質
+    function createBoardWoodTexture() {
+      const w = 1024, h = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#854d0e';
+      ctx.fillRect(0, 0, w, h);
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          const wave = Math.sin(x * 0.02 + Math.sin(y * 0.035) * 3.5 + Math.sin((x + y) * 0.015) * 1.5);
+          const fine = Math.sin(x * 0.15 + Math.cos(y * 0.05) * 1.2) * 0.15;
+          const v = Math.max(0, Math.min(1, 0.5 + wave * 0.4 + fine));
+
+          const r = 160 + v * 45;
+          const g = 105 + v * 35;
+          const b = 35 + v * 15;
+
+          data[idx]     = Math.round(r);
+          data[idx + 1] = Math.round(g);
+          data[idx + 2] = Math.round(b);
+          data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      // 繪製傳統象棋暗棋格線 (深雕墨線)
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(60, 30, 5, 0.7)';
+      const stepX = w / COLS;
+      const stepY = h / ROWS;
+
+      for (let c = 1; c < COLS; c++) {
+        const x = c * stepX;
+        ctx.beginPath();
+        ctx.moveTo(x, 0); ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let r = 1; r < ROWS; r++) {
+        const y = r * stepY;
+        ctx.beginPath();
+        ctx.moveTo(0, y); ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.85)';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(4, 4, w - 8, h - 8);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    // 2. 黑胡桃實木琴漆圍欄紋理
+    let cachedWalnutTex = null;
+    function getWalnutTexture() {
+      if (cachedWalnutTex) return cachedWalnutTex;
+      const w = 512, h = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#22120a';
+      ctx.fillRect(0, 0, w, h);
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          const wave = Math.sin(x * 0.045 + Math.sin(y * 0.016) * 3.8);
+          const v = Math.max(0, Math.min(1, 0.5 + wave * 0.42));
+          data[idx]     = Math.round(32 + v * 44);
+          data[idx + 1] = Math.round(17 + v * 24);
+          data[idx + 2] = Math.round(10 + v * 14);
+          data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      cachedWalnutTex = markShared(new THREE.CanvasTexture(canvas));
+      cachedWalnutTex.wrapS = THREE.RepeatWrapping;
+      cachedWalnutTex.wrapT = THREE.RepeatWrapping;
+      cachedWalnutTex.repeat.set(2, 2);
+      return cachedWalnutTex;
+    }
+
+    // 3. 棋子正面書法材質 (紅黑雙方統一為經典溫潤象牙木／黃楊木底面，絕不洩漏紅黑！)
+    const pieceTextureCache = {};
+    function getPieceFrontTexture(color, name, rank) {
+      const key = `${color}_${name}`;
+      if (pieceTextureCache[key]) return pieceTextureCache[key];
+
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      const isRed = (color === 'RED');
+
+      // 紅黑雙方統一使用完全相同的溫潤象牙木／黃楊木底面質感 (Warm Boxwood Ivory Texture)
+      const bgGrad = ctx.createRadialGradient(128, 128, 15, 128, 128, 128);
+      bgGrad.addColorStop(0, '#fffefb');
+      bgGrad.addColorStop(0.65, '#faf2df');
+      bgGrad.addColorStop(1, '#eeddbf');
+      ctx.fillStyle = bgGrad;
+      ctx.beginPath();
+      ctx.arc(128, 128, 122, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 同心雕刻圓環：紅方為正統朱紅、黑方為深邃烏墨
+      const primaryColor = isRed ? '#dc2626' : '#111827';
+      const grooveColor = isRed ? 'rgba(220, 38, 38, 0.35)' : 'rgba(17, 24, 39, 0.35)';
+
+      ctx.strokeStyle = primaryColor;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(128, 128, 116, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = grooveColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(128, 128, 106, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 繁體大楷書法字形雕刻與立體凹槽陰影 (朱紅紅字 vs 烏墨黑字)
+      ctx.font = 'bold 124px "Kaiti", "BiauKai", "PingFang TC", "Microsoft JhengHei", serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      if (isRed) {
+        ctx.fillStyle = 'rgba(185, 28, 28, 0.28)';
+        ctx.fillText(name, 130, 122);
+        ctx.fillStyle = '#dc2626';
+        ctx.fillText(name, 128, 120);
+      } else {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.fillText(name, 130, 122);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(name, 128, 120);
+      }
+
+      // 階級星芒標記
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillStyle = isRed ? '#dc2626' : '#1e293b';
+      const starStr = '★'.repeat(rank);
+      ctx.fillText(starStr, 128, 202);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 8;
+      pieceTextureCache[key] = markShared(tex);
+      return tex;
+    }
+
+    // 4. 棋子背面神秘圖騰 (暗棋背印：中性沉穩深檀木金色圖騰，面向玩家正向)
+    let cachedBackTexture = null;
+    function getPieceBackTexture() {
+      if (cachedBackTexture) return cachedBackTexture;
+
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // 全體 32 子完全相同之中性深檀木底面 (Sandalwood Dark Lacquer)，毫無紅黑偏差
+      const bgGrad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+      bgGrad.addColorStop(0, '#422415');
+      bgGrad.addColorStop(0.7, '#261309');
+      bgGrad.addColorStop(1, '#150904');
+      ctx.fillStyle = bgGrad;
+      ctx.beginPath();
+      ctx.arc(128, 128, 122, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 旋轉 180 度，使棋子翻蓋朝上時圖騰面向玩家正向
+      ctx.translate(128, 128);
+      ctx.rotate(Math.PI);
+      ctx.translate(-128, -128);
+
+      // 金色雙圈邊飾
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(128, 128, 116, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(128, 128, 106, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 金色貓掌紋章
+      const pawGrad = ctx.createRadialGradient(128, 128, 5, 128, 128, 60);
+      pawGrad.addColorStop(0, '#fef08a');
+      pawGrad.addColorStop(0.65, '#f59e0b');
+      pawGrad.addColorStop(1, '#b45309');
+      ctx.fillStyle = pawGrad;
+
+      ctx.beginPath();
+      ctx.arc(128, 142, 34, 0, Math.PI * 2);
+      ctx.arc(92, 95, 16, 0, Math.PI * 2);
+      ctx.arc(128, 80, 16, 0, Math.PI * 2);
+      ctx.arc(164, 95, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 貓掌內嵌古印字「暗」
+      ctx.font = 'bold 36px "Kaiti", "BiauKai", serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#2d1407';
+      ctx.fillText('暗', 128, 142);
+
+      cachedBackTexture = markShared(new THREE.CanvasTexture(canvas));
+      cachedBackTexture.anisotropy = 8;
+      return cachedBackTexture;
+    }
+
+    // 5. 邊框座標標籤紋理 (A-H / 1-4)
+    function createCoordinateTexture(type) {
+      const isHoriz = (type === 'horizontal');
+      const w = isHoriz ? 1024 : 128;
+      const h = isHoriz ? 128 : 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.font = 'bold 52px "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const labels = isHoriz ? ['A','B','C','D','E','F','G','H'] : ['1','2','3','4'];
+      const count = labels.length;
+      const step = (isHoriz ? w : h) / count;
+
+      for (let i = 0; i < count; i++) {
+        const text = labels[i];
+        const cx = isHoriz ? (i + 0.5) * step : w / 2;
+        const cy = isHoriz ? h / 2 : (i + 0.5) * step;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillText(text, cx + 2, cy + 2);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(text, cx, cy);
+        ctx.fillStyle = '#fef08a';
+        ctx.fillText(text, cx - 1, cy - 1);
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 4;
+      return tex;
+    }
+
+    /* ==========================================================================
+       4. Three.js 3D 場景建構與專業影音燈光 (無閃爍、無破面、柔光護眼)
+       ========================================================================== */
+    function initThreeScene() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0f1d);
+      scene.fog = new THREE.FogExp2(0x0a0f1d, 0.022);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      resetCameraView();
+
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        logarithmicDepthBuffer: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.12;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.maxPolarAngle = Math.PI / 2.18;
+      controls.minDistance = 6;
+      controls.maxDistance = 28;
+
+      // 專業攝影棚燈光
+      const ambientLight = new THREE.AmbientLight(0xfffbeb, 0.65);
+      scene.add(ambientLight);
+
+      const mainSun = new THREE.DirectionalLight(0xfffaed, 1.35);
+      mainSun.position.set(10, 20, 10);
+      mainSun.castShadow = true;
+      mainSun.shadow.mapSize.width = 1024;
+      mainSun.shadow.mapSize.height = 1024;
+      mainSun.shadow.camera.left = -9;
+      mainSun.shadow.camera.right = 9;
+      mainSun.shadow.camera.top = 6;
+      mainSun.shadow.camera.bottom = -6;
+      mainSun.shadow.camera.near = 2;
+      mainSun.shadow.camera.far = 45;
+      mainSun.shadow.bias = -0.0001;
+      mainSun.shadow.normalBias = 0.04;
+      scene.add(mainSun);
+
+      const rimLight = new THREE.DirectionalLight(0x60a5fa, 0.48);
+      rimLight.position.set(-14, 15, -10);
+      scene.add(rimLight);
+
+      const frontFill = new THREE.DirectionalLight(0xfef08a, 0.38);
+      frontFill.position.set(0, 8, 14);
+      scene.add(frontFill);
+
+      // 光圈容器 (Legal Move Reticles) 初始化
+      reticleGroup = new THREE.Group();
+      scene.add(reticleGroup);
+
+      // 事件監聽
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('pointerdown', (e) => {
+        pointerDownPos.x = e.clientX;
+        pointerDownPos.y = e.clientY;
+      });
+      renderer.domElement.addEventListener('pointerup', onPointerUp);
+    }
+
+    function resetCameraView() {
+      camera.position.set(0, 15, 11);
+      camera.lookAt(0, 0, 0);
+      if (controls) {
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+    }
+
+    // 依頂部按鈕列的實際高度擺放左右資訊卡，避免窄版面時按鈕換行後被資訊卡蓋住
+    function layoutHud() {
+      const bar = document.querySelector('.top-bar');
+      if (!bar) return;
+      const top = Math.round(bar.getBoundingClientRect().bottom + 8);
+      document.documentElement.style.setProperty('--hud-top', top + 'px');
+    }
+
+    function onWindowResize() {
+      layoutHud();
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    /* ==========================================================================
+       5. 3D 棋盤架構 (實木托盤 + 內凹圓槽 + 黃銅包角鉚釘)
+       ========================================================================== */
+    function build3DBoard() {
+      if (boardGroup) removeAndDispose(boardGroup, scene);
+      boardGroup = new THREE.Group();
+
+      const boardW = COLS * CELL_SIZE; // 11.6
+      const boardH = ROWS * CELL_SIZE; // 5.8
+      const borderWidth = 1.15;
+      const totalW = boardW + 2 * borderWidth;
+      const totalH = boardH + 2 * borderWidth;
+
+      const woodMat = new THREE.MeshStandardMaterial({
+        map: getWalnutTexture(),
+        roughness: 0.36,
+        metalness: 0.05
+      });
+
+      const brassMat = new THREE.MeshStandardMaterial({
+        color: 0xd4af37,
+        roughness: 0.22,
+        metalness: 0.85
+      });
+
+      // 1. 厚實黑胡桃實木底座
+      const baseMesh = new THREE.Mesh(new THREE.BoxGeometry(totalW, 0.5, totalH), woodMat);
+      baseMesh.position.set(0, -0.25, 0);
+      baseMesh.receiveShadow = true;
+      boardGroup.add(baseMesh);
+
+      // 2. 獨立實木圍欄 (4 條獨立實木圍欄)
+      const rimH = 0.14;
+      const rimY = 0.07;
+
+      const nRim = new THREE.Mesh(new THREE.BoxGeometry(totalW, rimH, borderWidth), woodMat);
+      nRim.position.set(0, rimY, -(boardH / 2 + borderWidth / 2));
+      nRim.castShadow = true; nRim.receiveShadow = true;
+      boardGroup.add(nRim);
+
+      const sRim = new THREE.Mesh(new THREE.BoxGeometry(totalW, rimH, borderWidth), woodMat);
+      sRim.position.set(0, rimY, +(boardH / 2 + borderWidth / 2));
+      sRim.castShadow = true; sRim.receiveShadow = true;
+      boardGroup.add(sRim);
+
+      const wRim = new THREE.Mesh(new THREE.BoxGeometry(borderWidth, rimH, boardH), woodMat);
+      wRim.position.set(-(boardW / 2 + borderWidth / 2), rimY, 0);
+      wRim.castShadow = true; wRim.receiveShadow = true;
+      boardGroup.add(wRim);
+
+      const eRim = new THREE.Mesh(new THREE.BoxGeometry(borderWidth, rimH, boardH), woodMat);
+      eRim.position.set(+(boardW / 2 + borderWidth / 2), rimY, 0);
+      eRim.castShadow = true; eRim.receiveShadow = true;
+      boardGroup.add(eRim);
+
+      // 3. 內嵌金色黃銅飾條
+      const trimThick = 0.05;
+      const trimH = 0.12;
+      const trimY = 0.06;
+
+      const nTrim = new THREE.Mesh(new THREE.BoxGeometry(boardW, trimH, trimThick), brassMat);
+      nTrim.position.set(0, trimY, -(boardH / 2 - trimThick / 2));
+      boardGroup.add(nTrim);
+
+      const sTrim = new THREE.Mesh(new THREE.BoxGeometry(boardW, trimH, trimThick), brassMat);
+      sTrim.position.set(0, trimY, +(boardH / 2 - trimThick / 2));
+      boardGroup.add(sTrim);
+
+      const wTrim = new THREE.Mesh(new THREE.BoxGeometry(trimThick, trimH, boardH - trimThick * 2), brassMat);
+      wTrim.position.set(-(boardW / 2 - trimThick / 2), trimY, 0);
+      boardGroup.add(wTrim);
+
+      const eTrim = new THREE.Mesh(new THREE.BoxGeometry(trimThick, trimH, boardH - trimThick * 2), brassMat);
+      eTrim.position.set(+(boardW / 2 - trimThick / 2), trimY, 0);
+      boardGroup.add(eTrim);
+
+      // 4. 四角復古黃銅包角護片 + 鉚釘
+      const cornerBracketGeo = new THREE.BoxGeometry(0.72, 0.02, 0.72);
+      const rivetGeo = new THREE.SphereGeometry(0.045, 12, 12);
+      const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+
+      corners.forEach(([sx, sz]) => {
+        const cx = sx * (totalW / 2 - 0.42);
+        const cz = sz * (totalH / 2 - 0.42);
+
+        const bracket = new THREE.Mesh(cornerBracketGeo, brassMat);
+        bracket.position.set(cx, 0.142, cz);
+        boardGroup.add(bracket);
+
+        const rivets = [
+          [cx - sx * 0.18, cz - sz * 0.18],
+          [cx + sx * 0.18, cz - sz * 0.18],
+          [cx - sx * 0.18, cz + sz * 0.18]
+        ];
+        rivets.forEach(([rx, rz]) => {
+          const rivet = new THREE.Mesh(rivetGeo, brassMat);
+          rivet.position.set(rx, 0.156, rz);
+          boardGroup.add(rivet);
+        });
+      });
+
+      // 5. 金絲柚木棋盤主板
+      const boardTex = createBoardWoodTexture();
+      const boardMat = new THREE.MeshStandardMaterial({
+        map: boardTex,
+        roughness: 0.45,
+        metalness: 0.08
+      });
+      const boardMesh = new THREE.Mesh(new THREE.BoxGeometry(boardW, 0.06, boardH), boardMat);
+      boardMesh.position.set(0, 0.03, 0);
+      boardMesh.receiveShadow = true;
+      boardGroup.add(boardMesh);
+
+      // 6. 32 個微下凹棋座圓槽
+      const socketGeo = new THREE.CylinderGeometry(0.58, 0.58, 0.015, 32);
+      const socketMat = new THREE.MeshStandardMaterial({
+        color: 0x5a3407,
+        roughness: 0.65
+      });
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const x = (c - (COLS - 1) / 2) * CELL_SIZE;
+          const z = (r - (ROWS - 1) / 2) * CELL_SIZE;
+          const socket = new THREE.Mesh(socketGeo, socketMat);
+          socket.position.set(x, 0.062, z);
+          socket.receiveShadow = true;
+          boardGroup.add(socket);
+        }
+      }
+
+      // 7. 邊框金箔燙印座標板 (A-H / 1-4)
+      const horizTex = createCoordinateTexture('horizontal');
+      const vertTex = createCoordinateTexture('vertical');
+
+      const sCoord = new THREE.Mesh(new THREE.PlaneGeometry(boardW, borderWidth * 0.6), new THREE.MeshBasicMaterial({ map: horizTex, transparent: true }));
+      sCoord.rotation.x = -Math.PI / 2;
+      sCoord.position.set(0, 0.142, +(boardH / 2 + borderWidth * 0.48));
+      boardGroup.add(sCoord);
+
+      // 北側座標與南側同向對齊 (A-H 順序一致)
+      const nCoord = new THREE.Mesh(new THREE.PlaneGeometry(boardW, borderWidth * 0.6), new THREE.MeshBasicMaterial({ map: horizTex, transparent: true }));
+      nCoord.rotation.x = -Math.PI / 2;
+      nCoord.position.set(0, 0.142, -(boardH / 2 + borderWidth * 0.48));
+      boardGroup.add(nCoord);
+
+      const wCoord = new THREE.Mesh(new THREE.PlaneGeometry(borderWidth * 0.6, boardH), new THREE.MeshBasicMaterial({ map: vertTex, transparent: true }));
+      wCoord.rotation.x = -Math.PI / 2;
+      wCoord.position.set(-(boardW / 2 + borderWidth * 0.48), 0.142, 0);
+      boardGroup.add(wCoord);
+
+      const eCoord = new THREE.Mesh(new THREE.PlaneGeometry(borderWidth * 0.6, boardH), new THREE.MeshBasicMaterial({ map: vertTex, transparent: true }));
+      eCoord.rotation.x = -Math.PI / 2;
+      eCoord.position.set(+(boardW / 2 + borderWidth * 0.48), 0.142, 0);
+      boardGroup.add(eCoord);
+
+      scene.add(boardGroup);
+
+      // 確保光圈容器已就緒
+      if (!reticleGroup) {
+        reticleGroup = new THREE.Group();
+        scene.add(reticleGroup);
+      } else {
+        clearReticles();
+      }
+    }
+
+    // 6. 3D 棋子捏模與動態物理 (全體 32 子統一防洩密木質側邊 + 雙面材質)
+    let sharedPieceSideMaterial = null;
+    function getSharedPieceSideMaterial() {
+      if (!sharedPieceSideMaterial) {
+        sharedPieceSideMaterial = new THREE.MeshStandardMaterial({
+          color: 0x3a1f12, // 沉穩高級深色檀木側邊，全體 32 顆完全一致，從任何角度均無法偷看紅黑！
+          roughness: 0.38,
+          metalness: 0.12
+        });
+        markShared(sharedPieceSideMaterial);
+      }
+      return sharedPieceSideMaterial;
+    }
+
+    function createPieceMesh3D(pieceData) {
+      const group = new THREE.Group();
+
+      // 全體統一側邊材質，絕不洩漏紅黑！
+      const sideMat = getSharedPieceSideMaterial();
+
+      const frontTex = getPieceFrontTexture(pieceData.color, pieceData.name, pieceData.rank);
+      const topMat = new THREE.MeshStandardMaterial({
+        map: frontTex,
+        roughness: 0.24,
+        metalness: 0.12
+      });
+
+      const backTex = getPieceBackTexture();
+      const bottomMat = new THREE.MeshStandardMaterial({
+        map: backTex,
+        roughness: 0.28,
+        metalness: 0.15
+      });
+
+      const materials = [sideMat, topMat, bottomMat];
+      const discGeo = new THREE.CylinderGeometry(PIECE_RADIUS, PIECE_RADIUS, PIECE_HEIGHT, 36);
+      const discMesh = new THREE.Mesh(discGeo, materials);
+      discMesh.castShadow = true;
+      discMesh.receiveShadow = true;
+      group.add(discMesh);
+
+      // 初始蓋牌狀態：背面朝上
+      group.rotation.x = Math.PI;
+      group.position.y = PIECE_Y;
+
+      group.userData = { piece: pieceData, discMesh };
+      return group;
+    }
+
+    /* ==========================================================================
+       7. 棋局初始化與隨機洗牌配置
+       ========================================================================== */
+    function initGameBoard() {
+      gameEpoch++;
+      pieces.forEach(p => { if (p.mesh) removeAndDispose(p.mesh, scene); });
+      pieces = [];
+      grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+      clearReticles();
+
+      playerColor = null;
+      aiColor = null;
+      currentTurn = 'PLAYER';
+      selectedPiece = null;
+      isChainEating = false;
+      chainComboCount = 0;
+      isGameOver = false;
+      isAnimating = false;
+      moveHistory = [];
+      noProgressCount = 0;
+      document.getElementById('btn-end-chain').style.display = 'none';
+
+      let idCounter = 0;
+      const rawList = [];
+      PIECE_DEFS.forEach(def => {
+        for (let i = 0; i < def.count; i++) {
+          rawList.push({
+            id: idCounter++,
+            color: def.color,
+            name: def.name,
+            rank: def.rank,
+            isCannon: def.isCannon,
+            isRevealed: false,
+            isAlive: true,
+            row: -1,
+            col: -1,
+            mesh: null
+          });
+        }
+      });
+
+      for (let i = rawList.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rawList[i], rawList[j]] = [rawList[j], rawList[i]];
+      }
+
+      let idx = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const piece = rawList[idx++];
+          piece.row = r;
+          piece.col = c;
+          grid[r][c] = piece;
+
+          const mesh = createPieceMesh3D(piece);
+          const x = (c - (COLS - 1) / 2) * CELL_SIZE;
+          const z = (r - (ROWS - 1) / 2) * CELL_SIZE;
+          mesh.position.set(x, PIECE_Y, z);
+          scene.add(mesh);
+          piece.mesh = mesh;
+
+          pieces.push(piece);
+        }
+      }
+
+      updateHUD();
+      updateTurnIndicatorUI('🐾 開局！請翻開任意一顆暗棋');
+    }
+
+    /* ==========================================================================
+       8. 暗棋規則核心演算法 (合法吃子、連吃判定與黑暗盲吃)
+       ========================================================================== */
+    function canCapture(attacker, defender) {
+      if (!attacker.isRevealed || !defender.isRevealed) return false;
+      if (attacker.color === defender.color) return false;
+      if (attacker.isCannon) return false;
+
+      // 兵／卒 剋 帥／將
+      if (attacker.rank === 1 && defender.rank === 7) return true;
+      // 帥／將 不能吃 兵／卒
+      if (attacker.rank === 7 && defender.rank === 1) return false;
+
+      return attacker.rank >= defender.rank;
+    }
+
+    // 取得指定棋子的合法走步 (isMidChain=true 代表連吃狀態中，只能吃子不可移動到空位)
+    function getLegalMovesForPiece(p, isMidChain = false) {
+      if (!p.isRevealed || !p.isAlive) return [];
+
+      const moves = [];
+      const deltas = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+      // 1. 一般走步與相鄰吃子 (上下左右一格)
+      deltas.forEach(([dr, dc]) => {
+        const nr = p.row + dr;
+        const nc = p.col + dc;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+          const occupant = grid[nr][nc];
+          if (!occupant) {
+            // 空位：非連吃狀態下可走
+            if (!isMidChain) {
+              moves.push({ r: nr, c: nc, type: 'MOVE', target: null });
+            }
+          } else if (occupant.isRevealed && occupant.color !== p.color) {
+            // 敵方明棋：一般吃子
+            if (!p.isCannon && canCapture(p, occupant)) {
+              moves.push({ r: nr, c: nc, type: 'CAPTURE', target: occupant });
+            }
+          } else if (!occupant.isRevealed) {
+            // 暗棋：在【黑暗連吃】模式下，允許主動發動盲吃！
+            if (gameMode === 'DARK_CHAIN' && !p.isCannon) {
+              moves.push({ r: nr, c: nc, type: 'BLIND_CAPTURE', target: occupant });
+            }
+          }
+        }
+      });
+
+      // 2. 炮 (包) 隔山打牛直線跳吃演算法
+      if (p.isCannon) {
+        deltas.forEach(([dr, dc]) => {
+          let cr = p.row + dr;
+          let cc = p.col + dc;
+          let screenFound = false;
+
+          while (cr >= 0 && cr < ROWS && cc >= 0 && cc < COLS) {
+            const occupant = grid[cr][cc];
+            if (occupant) {
+              if (!screenFound) {
+                // 遇到第一顆棋子 (砲架)
+                screenFound = true;
+              } else {
+                // 遇到第二顆棋子！
+                if (occupant.isRevealed && occupant.color !== p.color) {
+                  // 敵方明棋跳吃
+                  moves.push({ r: cr, c: cc, type: 'CANNON_CAPTURE', target: occupant });
+                } else if (!occupant.isRevealed && gameMode === 'DARK_CHAIN') {
+                  // 黑暗連吃模式：暗棋也可隔山跳轟盲吃！
+                  moves.push({ r: cr, c: cc, type: 'BLIND_CANNON_CAPTURE', target: occupant });
+                }
+                break; // 砲架後方只能打第一顆目標
+              }
+            }
+            cr += dr;
+            cc += dc;
+          }
+        });
+      }
+
+      return moves;
+    }
+
+    /* ==========================================================================
+       9. 翻牌、移動、吃子與連吃連殺核心 (3D 翻滾、擊殺與連續攻擊)
+       ========================================================================== */
+    // 翻牌操作 (Flip)
+    function executeFlip(piece, onComplete) {
+      isAnimating = true;
+      playSound('flip');
+
+      const startY = piece.mesh.position.y;
+      const startRotX = piece.mesh.rotation.x;
+      const targetRotX = 0;
+      const peakY = 0.95;
+      const dur = 320;
+      const startTime = performance.now();
+
+      const ep = gameEpoch;
+      function animateFlipStep(now) {
+        if (ep !== gameEpoch) return;
+        const p = Math.min((now - startTime) / dur, 1.0);
+        const ease = Math.sin(p * Math.PI / 2);
+
+        piece.mesh.position.y = startY + Math.sin(p * Math.PI) * (peakY - startY);
+        piece.mesh.rotation.x = startRotX + (targetRotX - startRotX) * ease;
+
+        if (p < 1.0) {
+          requestAnimationFrame(animateFlipStep);
+        } else {
+          piece.mesh.position.y = PIECE_Y;
+          piece.mesh.rotation.x = targetRotX;
+          piece.isRevealed = true;
+          isAnimating = false;
+          noProgressCount = 0; // 翻棋算有進展
+
+          // 若為首翻，立即確立雙方陣營！
+          if (!playerColor) {
+            if (currentTurn === 'PLAYER') {
+              playerColor = piece.color;
+              aiColor = (playerColor === 'RED') ? 'BLACK' : 'RED';
+            } else {
+              aiColor = piece.color;
+              playerColor = (aiColor === 'RED') ? 'BLACK' : 'RED';
+            }
+            showToast(`🎉 首翻為${piece.color === 'RED' ? '紅' : '黑'}${piece.name}！你執【${playerColor === 'RED' ? '紅方' : '黑方'}】，阿喵執【${aiColor === 'RED' ? '紅方' : '黑方'}】！`);
+          }
+
+          updateHUD();
+          if (onComplete) onComplete();
+          else switchTurn();
+        }
+      }
+      requestAnimationFrame(animateFlipStep);
+    }
+
+    // 移動、普通吃子、炮跳吃，或發動盲吃
+    function executeMove(piece, targetR, targetC, moveType, onComplete) {
+      if (moveType === 'BLIND_CAPTURE' || moveType === 'BLIND_CANNON_CAPTURE') {
+        executeBlindCapture(piece, targetR, targetC, moveType, onComplete);
+        return;
+      }
+
+      isAnimating = true;
+      clearReticles();
+
+      const origR = piece.row;
+      const origC = piece.col;
+      const defender = grid[targetR][targetC];
+      noProgressCount = defender ? 0 : noProgressCount + 1; // 吃子歸零，單純走子累加
+
+      moveHistory.push({
+        origR, origC, targetR, targetC,
+        pieceId: piece.id,
+        defenderId: defender ? defender.id : null,
+        moveType
+      });
+
+      const targetX = (targetC - (COLS - 1) / 2) * CELL_SIZE;
+      const targetZ = (targetR - (ROWS - 1) / 2) * CELL_SIZE;
+
+      // 擊殺音效與動畫
+      if (defender) {
+        defender.isAlive = false;
+        if (moveType === 'CANNON_CAPTURE') {
+          playSound('cannon');
+          showToast(currentTurn === 'PLAYER' ? `💥 隔山打牛！你的${piece.name}跳吃了阿喵的${defender.name}！` : `💥 轟！阿喵的${piece.name}跳吃了你的${defender.name}！`);
+        } else {
+          playSound('capture');
+          if (piece.rank === 1 && defender.rank === 7) {
+            showToast(`🛡️ 奇蹟逆轉！小${piece.name}立大功，成功吃了大${defender.name}！`);
+          }
+        }
+
+        const defMesh = defender.mesh;
+        const fadeStart = performance.now();
+        function animateDefenderFade(now) {
+          const fp = Math.min((now - fadeStart) / 250, 1.0);
+          defMesh.scale.setScalar(1.0 - fp);
+          defMesh.position.y = PIECE_Y + Math.sin(fp * Math.PI) * 0.3;
+          if (fp < 1.0) requestAnimationFrame(animateDefenderFade);
+          else defMesh.visible = false;
+        }
+        requestAnimationFrame(animateDefenderFade);
+      } else {
+        playSound('move');
+      }
+
+      // 攻擊者滑動佔領目標格
+      const startX = piece.mesh.position.x;
+      const startZ = piece.mesh.position.z;
+      const moveStart = performance.now();
+      const moveDur = 280;
+
+      const ep = gameEpoch;
+      function animateAttackerSlide(now) {
+        if (ep !== gameEpoch) return;
+        const mp = Math.min((now - moveStart) / moveDur, 1.0);
+        const ease = mp * (2 - mp);
+
+        piece.mesh.position.x = startX + (targetX - startX) * ease;
+        piece.mesh.position.z = startZ + (targetZ - startZ) * ease;
+        piece.mesh.position.y = PIECE_Y + Math.sin(mp * Math.PI) * 0.28;
+
+        if (mp < 1.0) {
+          requestAnimationFrame(animateAttackerSlide);
+        } else {
+          piece.mesh.position.set(targetX, PIECE_Y, targetZ);
+          grid[origR][origC] = null;
+          grid[targetR][targetC] = piece;
+          piece.row = targetR;
+          piece.col = targetC;
+
+          isAnimating = false;
+          updateHUD();
+
+          if (checkGameOver()) return;
+
+          // 若是有吃子，且為連吃模式，檢驗是否發動連吃！
+          if (defender && (gameMode === 'CHAIN' || gameMode === 'DARK_CHAIN')) {
+            handlePostCaptureChain(piece);
+          } else {
+            endChainEating();
+            if (onComplete) onComplete();
+            else switchTurn();
+          }
+        }
+      }
+      requestAnimationFrame(animateAttackerSlide);
+    }
+
+    // 黑暗暗棋：對未翻開的暗棋發動【盲吃 (Blind Capture)】
+    function executeBlindCapture(attacker, targetR, targetC, moveType, onComplete) {
+      isAnimating = true;
+      clearReticles();
+
+      const defender = grid[targetR][targetC];
+      if (!defender || defender.isRevealed) {
+        isAnimating = false;
+        return;
+      }
+
+      // 1. 就地翻開目標暗棋
+      playSound('flip');
+      const startY = defender.mesh.position.y;
+      const startRotX = defender.mesh.rotation.x;
+      const targetRotX = 0;
+      const peakY = 0.95;
+      const dur = 320;
+      const startTime = performance.now();
+
+      const ep = gameEpoch;
+      function animateBlindFlip(now) {
+        if (ep !== gameEpoch) return;
+        const p = Math.min((now - startTime) / dur, 1.0);
+        const ease = Math.sin(p * Math.PI / 2);
+        defender.mesh.position.y = startY + Math.sin(p * Math.PI) * (peakY - startY);
+        defender.mesh.rotation.x = startRotX + (targetRotX - startRotX) * ease;
+
+        if (p < 1.0) {
+          requestAnimationFrame(animateBlindFlip);
+        } else {
+          defender.mesh.position.y = PIECE_Y;
+          defender.mesh.rotation.x = targetRotX;
+          defender.isRevealed = true;
+          noProgressCount = 0; // 盲吃會翻開暗棋，算有進展
+          updateHUD();
+
+          // 2. 檢驗揭曉結果：
+          // 情況 A：翻到己方友軍！
+          if (defender.color === attacker.color) {
+            playSound('friendly');
+            showToast(currentTurn === 'PLAYER' ? `🤝 翻出友軍！發現自己人的【${defender.name}】！盲吃中止！` : `🤝 阿喵盲吃翻出了自己的友軍【${defender.name}】！盲吃中止！`);
+            isAnimating = false;
+            endChainEating();
+            switchTurn();
+            return;
+          }
+
+          // 情況 B：翻到敵方棋子！比對階級是否吃得下
+          let canEat = false;
+          if (moveType === 'BLIND_CANNON_CAPTURE') {
+            canEat = true; // 炮跳吃任何敵方階級
+          } else {
+            if (attacker.rank === 1 && defender.rank === 7) canEat = true; // 兵吃帥
+            else if (attacker.rank === 7 && defender.rank === 1) canEat = false; // 帥不能吃兵
+            else canEat = (attacker.rank >= defender.rank);
+          }
+
+          if (canEat) {
+            // 盲吃成功！執行擊殺與滑入
+            if (moveType === 'BLIND_CANNON_CAPTURE') {
+              playSound('cannon');
+              showToast(currentTurn === 'PLAYER' ? `💥 盲轟大成功！你的【${attacker.name}】隔山擊殺了隱蔽的【${defender.name}】！` : `💥 轟！阿喵盲轟擊殺了你的隱蔽【${defender.name}】！`);
+            } else {
+              playSound('capture');
+              showToast(currentTurn === 'PLAYER' ? `🎲 盲吃大成功！你的【${attacker.name}】擊殺了隱蔽的【${defender.name}】！` : `🎲 算你倒楣！阿喵盲吃擊殺了你的隱蔽【${defender.name}】！`);
+            }
+
+            defender.isAlive = false;
+            const defMesh = defender.mesh;
+            const fadeStart = performance.now();
+            function animateFade(now) {
+              const fp = Math.min((now - fadeStart) / 250, 1.0);
+              defMesh.scale.setScalar(1.0 - fp);
+              defMesh.position.y = PIECE_Y + Math.sin(fp * Math.PI) * 0.3;
+              if (fp < 1.0) requestAnimationFrame(animateFade);
+              else defMesh.visible = false;
+            }
+            requestAnimationFrame(animateFade);
+
+            const origR = attacker.row;
+            const origC = attacker.col;
+            const targetX = (targetC - (COLS - 1) / 2) * CELL_SIZE;
+            const targetZ = (targetR - (ROWS - 1) / 2) * CELL_SIZE;
+            const startX = attacker.mesh.position.x;
+            const startZ = attacker.mesh.position.z;
+            const moveStart = performance.now();
+
+            function animateSlide(now) {
+              if (ep !== gameEpoch) return;
+              const mp = Math.min((now - moveStart) / 280, 1.0);
+              const ease = mp * (2 - mp);
+              attacker.mesh.position.x = startX + (targetX - startX) * ease;
+              attacker.mesh.position.z = startZ + (targetZ - startZ) * ease;
+              attacker.mesh.position.y = PIECE_Y + Math.sin(mp * Math.PI) * 0.28;
+
+              if (mp < 1.0) {
+                requestAnimationFrame(animateSlide);
+              } else {
+                attacker.mesh.position.set(targetX, PIECE_Y, targetZ);
+                grid[origR][origC] = null;
+                grid[targetR][targetC] = attacker;
+                attacker.row = targetR;
+                attacker.col = targetC;
+                isAnimating = false;
+                updateHUD();
+
+                if (checkGameOver()) return;
+
+                // 檢查是否能繼續連吃！
+                handlePostCaptureChain(attacker);
+              }
+            }
+            requestAnimationFrame(animateSlide);
+          } else {
+            // 踢到鐵板！吃不下！
+            playSound('buzzer');
+            showToast(currentTurn === 'PLAYER' ? `💥 踢到鐵板！盲吃揭曉為敵方【${defender.name}】（等級更高）！吃不下！盲吃中止！` : `💥 哈哈！阿喵踢到鐵板！翻出你的大【${defender.name}】吃不下！盲吃中止！`);
+            isAnimating = false;
+            endChainEating();
+            switchTurn();
+          }
+        }
+      }
+      requestAnimationFrame(animateBlindFlip);
+    }
+
+    // 處理吃子後的【連吃判定 (Chain Capture Handler)】
+    function handlePostCaptureChain(attacker) {
+      if (gameMode === 'CLASSIC') {
+        endChainEating();
+        switchTurn();
+        return;
+      }
+
+      // 取得在當前新位置上，所有可連吃目標 (isMidChain=true)
+      const nextCaptures = getLegalMovesForPiece(attacker, true);
+
+      if (nextCaptures.length > 0) {
+        chainComboCount++;
+        isChainEating = true;
+        selectedPiece = attacker;
+
+        playSound('chain', 1.0 + Math.min(chainComboCount * 0.15, 1.2));
+
+        if (currentTurn === 'PLAYER') {
+          showToast(`🔥 【${chainComboCount} 連吃！】可點擊下一個目標，或點「結束連吃」！`);
+          updateTurnIndicatorUI(`🔥 ${chainComboCount} 連吃進行中！請選擇下一擊`);
+          document.getElementById('btn-end-chain').style.display = 'inline-flex';
+          showLegalMoveReticles(attacker, true);
+        } else {
+          // AI 連吃思考約 500ms 後發動下一擊！
+          later(() => {
+            makeAIChainMove(attacker, nextCaptures);
+          }, 520);
+        }
+      } else {
+        // 無子可吃，正常結束連吃回合
+        endChainEating();
+        switchTurn();
+      }
+    }
+
+    function endChainEating() {
+      isChainEating = false;
+      chainComboCount = 0;
+      selectedPiece = null;
+      document.getElementById('btn-end-chain').style.display = 'none';
+      clearReticles();
+    }
+
+    function playerEndChainEating() {
+      if (!isChainEating || currentTurn !== 'PLAYER' || isAnimating) return;
+      showToast('連吃回合主動結束！見好就收 🐾');
+      endChainEating();
+      switchTurn();
+    }
+
+    /* ==========================================================================
+       10. 回合切換與勝負裁判系統
+       ========================================================================== */
+    function switchTurn() {
+      currentTurn = (currentTurn === 'PLAYER') ? 'AI' : 'PLAYER';
+      selectedPiece = null;
+      clearReticles();
+
+      // 和棋判定：連續 DRAW_LIMIT 步沒有吃子或翻棋 (避免殘局互相追不到而下不完)
+      if (noProgressCount >= DRAW_LIMIT) {
+        triggerDraw();
+        return;
+      }
+      if (noProgressCount === DRAW_LIMIT - 10) {
+        showToast('⏳ 再 10 步沒有吃子或翻棋，就會判定和棋！');
+      }
+
+      // 困斃判定：輪到的一方若無暗棋可翻、也無子可動，判對方獲勝 (避免卡在「思考中」)
+      if (playerColor) {
+        const moverColor = (currentTurn === 'PLAYER') ? playerColor : aiColor;
+        if (!sideHasAnyAction(moverColor)) {
+          triggerGameOver(moverColor === 'RED' ? 'BLACK' : 'RED', true);
+          return;
+        }
+      }
+
+      if (currentTurn === 'PLAYER') {
+        updateTurnIndicatorUI('🐾 輪到你了！請選子或翻開暗棋');
+      } else {
+        updateTurnIndicatorUI('🐱 阿喵老師思考中...');
+        later(makeAIMove, 580);
+      }
+    }
+
+    // 指定顏色是否還有任何可做的動作 (翻暗棋，或任一明棋有合法走步)
+    function sideHasAnyAction(color) {
+      if (pieces.some(p => !p.isRevealed && p.isAlive)) return true;
+      return pieces.some(p => p.color === color && p.isAlive && p.isRevealed && getLegalMovesForPiece(p).length > 0);
+    }
+
+    function checkGameOver() {
+      if (!playerColor) return false;
+
+      const redAlive = pieces.some(p => p.color === 'RED' && p.isAlive);
+      const blackAlive = pieces.some(p => p.color === 'BLACK' && p.isAlive);
+
+      if (!redAlive || !blackAlive) {
+        triggerGameOver(redAlive ? 'RED' : 'BLACK');
+        return true;
+      }
+
+      return false;
+    }
+
+    function triggerDraw() {
+      isGameOver = true;
+      endChainEating();
+      clearReticles();
+
+      const redAlive = pieces.filter(p => p.color === 'RED' && p.isAlive).length;
+      const blackAlive = pieces.filter(p => p.color === 'BLACK' && p.isAlive).length;
+      document.getElementById('victory-title').innerText = '🤝 和棋！勢均力敵';
+      document.getElementById('victory-msg').innerText = `雙方連續 ${DRAW_LIMIT} 步都沒有吃子或翻棋，這一局握手言和！`;
+      document.getElementById('victory-scores').innerText = `紅方剩 ${redAlive} 子 ・ 黑方剩 ${blackAlive} 子`;
+      document.getElementById('victory-modal').style.display = 'flex';
+    }
+
+    function triggerGameOver(winnerColor, isStalemate = false) {
+      isGameOver = true;
+      endChainEating();
+      clearReticles();
+
+      const modal = document.getElementById('victory-modal');
+      const title = document.getElementById('victory-title');
+      const msg = document.getElementById('victory-msg');
+      const scores = document.getElementById('victory-scores');
+
+      const isPlayerWin = (winnerColor === playerColor);
+
+      if (isPlayerWin) {
+        playSound('win');
+        title.innerText = '🎉 旗開得勝！你贏了！';
+        msg.innerText = isStalemate ? '太強了！你巧妙走位封殺對手，阿喵無子可動困斃！' : '太厲害了！你以過人的智謀全殲阿喵老師的棋子！';
+        scores.innerText = `🏆 獲勝方：你執【${playerColor === 'RED' ? '紅方' : '黑方'}】`;
+        fireConfetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        setTimeout(() => fireConfetti({ particleCount: 80, spread: 100, origin: { y: 0.5 } }), 350);
+      } else {
+        title.innerText = '🐱 阿喵老師險勝！';
+        msg.innerText = '差一點點就贏了！記住「用炮隔山埋伏、以卒誘將」，再來一局！';
+        scores.innerText = `🐱 獲勝方：阿喵執【${aiColor === 'RED' ? '紅方' : '黑方'}】`;
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    /* ==========================================================================
+       11. 阿喵老師三階棋力 AI 引擎 (支援連吃與黑暗盲吃)
+       ========================================================================== */
+    function makeAIMove() {
+      if (isGameOver || currentTurn !== 'AI' || isAnimating) return;
+
+      const unrevealedPieces = pieces.filter(p => !p.isRevealed && p.isAlive);
+
+      if (!playerColor) {
+        const randPiece = unrevealedPieces[Math.floor(Math.random() * unrevealedPieces.length)];
+        executeFlip(randPiece);
+        return;
+      }
+
+      const myAlivePieces = pieces.filter(p => p.color === aiColor && p.isRevealed && p.isAlive);
+      const allMoves = [];
+      myAlivePieces.forEach(p => {
+        const moves = getLegalMovesForPiece(p, false);
+        moves.forEach(m => allMoves.push({ piece: p, move: m }));
+      });
+
+      // 難度 1：⭐ 幼幼貓
+      if (aiDifficulty === 1) {
+        const captures = allMoves.filter(a => a.move.type === 'CAPTURE' || a.move.type === 'CANNON_CAPTURE' || a.move.type === 'BLIND_CAPTURE');
+        if (captures.length > 0 && Math.random() < 0.75) {
+          // 未翻開的暗棋看不到階級，一律當作 3 (不可偷看盲吃目標的真實身分)
+          const visibleRank = (t) => (t && t.isRevealed) ? t.rank : 3;
+          captures.sort((a, b) => visibleRank(b.move.target) - visibleRank(a.move.target));
+          const chosen = captures[0];
+          executeMove(chosen.piece, chosen.move.r, chosen.move.c, chosen.move.type);
+          return;
+        }
+
+        if (unrevealedPieces.length > 0 && (Math.random() < 0.5 || allMoves.length === 0)) {
+          const randPiece = unrevealedPieces[Math.floor(Math.random() * unrevealedPieces.length)];
+          executeFlip(randPiece);
+          return;
+        }
+
+        if (allMoves.length > 0) {
+          const chosen = allMoves[Math.floor(Math.random() * allMoves.length)];
+          executeMove(chosen.piece, chosen.move.r, chosen.move.c, chosen.move.type);
+          return;
+        }
+      }
+
+      // 難度 2 & 3：啟發式權重評估
+      allMoves.forEach(action => {
+        let score = 0;
+        const target = action.move.target;
+
+        if (target && target.isRevealed) {
+          const rankVals = [0, 15, 45, 20, 30, 35, 60, 100];
+          score += rankVals[target.rank] * 4;
+          if (action.piece.rank === 1 && target.rank === 7) score += 250;
+          if (action.move.type === 'CANNON_CAPTURE') score += 50;
+        } else if (action.move.type === 'BLIND_CAPTURE' || action.move.type === 'BLIND_CANNON_CAPTURE') {
+          // 盲吃權重：將帥/仕盲吃勝率極高
+          if (action.piece.rank >= 6) score += 65;
+          else if (action.piece.rank >= 4) score += 30;
+          else score += 10;
+        }
+
+        const deltas = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        deltas.forEach(([dr, dc]) => {
+          const nr = action.move.r + dr;
+          const nc = action.move.c + dc;
+          if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+            const opp = grid[nr][nc];
+            if (opp && opp.isRevealed && opp.color === playerColor && opp.isAlive) {
+              if (canCapture(opp, action.piece)) {
+                score -= 120;
+              }
+            }
+          }
+        });
+
+        if (aiDifficulty === 3 && action.piece.rank === 7) {
+          deltas.forEach(([dr, dc]) => {
+            const nr = action.move.r + dr;
+            const nc = action.move.c + dc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+              const opp = grid[nr][nc];
+              if (opp && !opp.isRevealed && opp.isAlive) {
+                score -= 40;
+              }
+            }
+          });
+        }
+
+        action.score = score + Math.random() * 5;
+      });
+
+      allMoves.sort((a, b) => b.score - a.score);
+
+      if (allMoves.length > 0 && allMoves[0].score > 30) {
+        const best = allMoves[0];
+        executeMove(best.piece, best.move.r, best.move.c, best.move.type);
+        return;
+      }
+
+      if (unrevealedPieces.length > 0) {
+        const chosen = unrevealedPieces[Math.floor(Math.random() * unrevealedPieces.length)];
+        executeFlip(chosen);
+        return;
+      }
+
+      if (allMoves.length > 0) {
+        const best = allMoves[0];
+        executeMove(best.piece, best.move.r, best.move.c, best.move.type);
+        return;
+      }
+    }
+
+    // AI 發動連吃 (AI Chain Combo)
+    function makeAIChainMove(attacker, captures) {
+      if (isGameOver || currentTurn !== 'AI' || isAnimating) return;
+
+      captures.forEach(c => {
+        let score = 0;
+        if (c.target && c.target.isRevealed) {
+          score = c.target.rank * 10;
+          if (attacker.rank === 1 && c.target.rank === 7) score += 200;
+        } else if (c.type === 'BLIND_CAPTURE' || c.type === 'BLIND_CANNON_CAPTURE') {
+          score = (attacker.rank >= 5) ? 40 : 15;
+        }
+        c.aiScore = score + Math.random() * 5;
+      });
+
+      captures.sort((a, b) => b.aiScore - a.aiScore);
+      const chosen = captures[0];
+
+      if (aiDifficulty === 1 && Math.random() < 0.25) {
+        endChainEating();
+        switchTurn();
+        return;
+      }
+
+      executeMove(attacker, chosen.r, chosen.c, chosen.type);
+    }
+
+    /* ==========================================================================
+       12. 使用者點擊互動與光圈射線拾取 (Click & Tap Raycasting)
+       ========================================================================== */
+    function onPointerUp(event) {
+      if (isGameOver || isAnimating || currentTurn !== 'PLAYER') return;
+
+      const dist = Math.hypot(event.clientX - pointerDownPos.x, event.clientY - pointerDownPos.y);
+      if (dist > 8) return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // 1. 優先拾取目標光圈 (Move & Capture Reticles)
+      if (selectedPiece && legalMoves.length > 0) {
+        const hitReticles = raycaster.intersectObjects(reticleGroup.children, true);
+        if (hitReticles.length > 0) {
+          let obj = hitReticles[0].object;
+          while (obj && !obj.userData.move && obj.parent) obj = obj.parent;
+          if (obj && obj.userData.move) {
+            const m = obj.userData.move;
+            executeMove(selectedPiece, m.r, m.c, m.type);
+            return;
+          }
+        }
+      }
+
+      // 如果當前處於連吃狀態，必須走光圈或按結束，不可切換其他棋子
+      if (isChainEating) return;
+
+      // 2. 拾取棋子本體
+      const pieceMeshes = pieces.filter(p => p.isAlive).map(p => p.mesh);
+      const hitPieces = raycaster.intersectObjects(pieceMeshes, true);
+
+      if (hitPieces.length > 0) {
+        let obj = hitPieces[0].object;
+        while (obj && !obj.userData.piece && obj.parent) obj = obj.parent;
+
+        if (obj && obj.userData.piece) {
+          const clickedPiece = obj.userData.piece;
+
+          // 點擊未翻開暗棋 -> 執行翻牌
+          if (!clickedPiece.isRevealed) {
+            clearReticles();
+            selectedPiece = null;
+            executeFlip(clickedPiece);
+            return;
+          }
+
+          // 點擊己方已翻開棋子 -> 選取並顯示合法走步光圈
+          if (playerColor && clickedPiece.color === playerColor) {
+            if (selectedPiece === clickedPiece) {
+              selectedPiece = null;
+              clearReticles();
+            } else {
+              playSound('select');
+              selectedPiece = clickedPiece;
+              showLegalMoveReticles(clickedPiece, false);
+            }
+            return;
+          }
+
+          // 點擊敵方已翻開棋子 -> 檢查是否在當前選中棋子的吃子範圍內
+          if (selectedPiece && playerColor && clickedPiece.color !== playerColor) {
+            const matchedMove = legalMoves.find(m => m.r === clickedPiece.row && m.c === clickedPiece.col);
+            if (matchedMove) {
+              executeMove(selectedPiece, matchedMove.r, matchedMove.c, matchedMove.type);
+              return;
+            }
+          }
+        }
+      }
+
+      // 3. 點擊空白處 -> 取消選取
+      if (selectedPiece && !isChainEating) {
+        selectedPiece = null;
+        clearReticles();
+      }
+    }
+
+    // 顯示合法走步、擊殺與黑暗盲吃目標光圈
+    function showLegalMoveReticles(p, isMidChain = false) {
+      clearReticles();
+      legalMoves = getLegalMovesForPiece(p, isMidChain);
+
+      legalMoves.forEach(m => {
+        const x = (m.c - (COLS - 1) / 2) * CELL_SIZE;
+        const z = (m.r - (ROWS - 1) / 2) * CELL_SIZE;
+
+        let ringColor = 0x10b981; // 綠色：空格移動
+        if (m.type === 'CAPTURE') ringColor = 0xef4444; // 紅色：明棋吃子
+        if (m.type === 'CANNON_CAPTURE') ringColor = 0x06b6d4; // 藍色：炮跳吃
+        if (m.type === 'BLIND_CAPTURE' || m.type === 'BLIND_CANNON_CAPTURE') ringColor = 0xa855f7; // 紫色：黑暗盲吃
+
+        const discGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.03, 32);
+        const discMat = new THREE.MeshBasicMaterial({
+          color: ringColor,
+          transparent: true,
+          opacity: 0.5
+        });
+        const disc = new THREE.Mesh(discGeo, discMat);
+        disc.position.set(x, 0.075, z);
+        disc.userData = { move: m };
+
+        const ringGeo = new THREE.RingGeometry(0.42, 0.50, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(0, 0.02, 0);
+        disc.add(ring);
+
+        // 若為盲吃，加入懸浮神秘問號徽章 (?)
+        if (m.type === 'BLIND_CAPTURE' || m.type === 'BLIND_CANNON_CAPTURE') {
+          const badgeCanvas = document.createElement('canvas');
+          badgeCanvas.width = 64;
+          badgeCanvas.height = 64;
+          const bCtx = badgeCanvas.getContext('2d');
+          bCtx.fillStyle = '#a855f7';
+          bCtx.beginPath();
+          bCtx.arc(32, 32, 28, 0, Math.PI * 2);
+          bCtx.fill();
+          bCtx.strokeStyle = '#fef08a';
+          bCtx.lineWidth = 4;
+          bCtx.stroke();
+
+          bCtx.font = 'bold 36px sans-serif';
+          bCtx.fillStyle = '#fef08a';
+          bCtx.textAlign = 'center';
+          bCtx.textBaseline = 'middle';
+          bCtx.fillText('?', 32, 34);
+
+          const badgeTex = new THREE.CanvasTexture(badgeCanvas);
+          const badgeMat = new THREE.MeshBasicMaterial({ map: badgeTex, transparent: true });
+          const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.38), badgeMat);
+          badge.rotation.x = -Math.PI / 2;
+          badge.position.set(0, 0.03, 0);
+          disc.add(badge);
+        }
+
+        reticleGroup.add(disc);
+      });
+    }
+
+    function clearReticles() {
+      if (reticleGroup) {
+        while (reticleGroup.children.length > 0) {
+          removeAndDispose(reticleGroup.children[0], reticleGroup);
+        }
+      }
+      legalMoves = [];
+    }
+
+    /* ==========================================================================
+       13. UI 儀表板、彈窗與輔助操控
+       ========================================================================== */
+    let pendingTargetMode = null;
+
+    // 點擊頂部三大獨立模式按鈕
+    function onModeTabClick(targetMode) {
+      if (isAnimating) return;
+      if (targetMode === gameMode) return; // 已經是當前模式
+
+      // 判斷棋局是否已經開始（已有任一顆棋子翻開，或已有走子紀錄）
+      const isGameInProgress = pieces.some(p => p.isRevealed) || (moveHistory && moveHistory.length > 0);
+
+      if (isGameInProgress) {
+        // 局中禁止半途直接切換：彈出確認彈窗
+        pendingTargetMode = targetMode;
+        const modeConfig = MODE_CONFIG[targetMode];
+        document.getElementById('confirm-mode-name').innerText = modeConfig.name;
+        document.getElementById('confirm-mode-desc').innerText = modeConfig.desc;
+        document.getElementById('mode-confirm-modal').style.display = 'flex';
+      } else {
+        // 尚未開局翻棋，直接切換無痛套用
+        applyGameMode(targetMode);
+        playSound('select');
+      }
+    }
+
+    // 確認重新開局並切換模式
+    function confirmModeSwitch() {
+      document.getElementById('mode-confirm-modal').style.display = 'none';
+      if (pendingTargetMode) {
+        const target = pendingTargetMode;
+        pendingTargetMode = null;
+        applyGameMode(target);
+        resetGame();
+        playSound('select');
+      }
+    }
+
+    // 取消切換模式，保留當前對局
+    function cancelModeSwitch() {
+      document.getElementById('mode-confirm-modal').style.display = 'none';
+      pendingTargetMode = null;
+      playSound('select');
+    }
+
+    // 點擊遮罩外圍關閉
+    function closeModeConfirmModal(e) {
+      if (e.target && e.target.id === 'mode-confirm-modal') {
+        cancelModeSwitch();
+      }
+    }
+
+    // 套用模式並更新三個獨立按鈕的 active 視覺樣式
+    function applyGameMode(mode) {
+      gameMode = mode;
+
+      const tabClassic = document.getElementById('tab-classic');
+      const tabChain = document.getElementById('tab-chain');
+      const tabDark = document.getElementById('tab-dark');
+
+      if (tabClassic && tabChain && tabDark) {
+        tabClassic.className = 'btn-mode-tab' + (mode === 'CLASSIC' ? ' active-classic' : '');
+        tabChain.className = 'btn-mode-tab' + (mode === 'CHAIN' ? ' active-chain' : '');
+        tabDark.className = 'btn-mode-tab' + (mode === 'DARK_CHAIN' ? ' active-dark' : '');
+      }
+
+      showToast(`玩法已切換為：【${MODE_CONFIG[mode].name}】(${MODE_CONFIG[mode].desc})`);
+      endChainEating();
+    }
+
+    function updateHUD() {
+      const bRed = document.getElementById('badge-red');
+      const bBlack = document.getElementById('badge-black');
+
+      if (!playerColor) {
+        bRed.innerText = '紅方 (待定)';
+        bBlack.innerText = '黑方 (待定)';
+      } else {
+        bRed.innerText = `紅方 (${playerColor === 'RED' ? '你' : '阿喵'})`;
+        bBlack.innerText = `黑方 (${playerColor === 'BLACK' ? '你' : '阿喵'})`;
+      }
+
+      const redAlive = pieces.filter(p => p.color === 'RED' && p.isAlive).length;
+      const blackAlive = pieces.filter(p => p.color === 'BLACK' && p.isAlive).length;
+      document.getElementById('count-red').innerText = `${redAlive} / 16`;
+      document.getElementById('count-black').innerText = `${blackAlive} / 16`;
+
+      const unrevealed = pieces.filter(p => !p.isRevealed && p.isAlive).length;
+      document.getElementById('unrevealed-count').innerText = `暗棋剩餘: ${unrevealed}`;
+
+      renderRoster('roster-red', 'RED');
+      renderRoster('roster-black', 'BLACK');
+    }
+
+    function renderRoster(elementId, color) {
+      const container = document.getElementById(elementId);
+      container.innerHTML = '';
+      const order = color === 'RED' ? ['帥','仕','仕','相','相','俥','俥','傌','傌','炮','炮','兵','兵','兵','兵','兵']
+                                    : ['將','士','士','象','象','車','車','馬','馬','包','包','卒','卒','卒','卒','卒'];
+
+      // pieces 是洗牌後的盤面順序，必須依 id 排回「帥仕仕相相…」才能與 order 對應
+      const list = pieces.filter(p => p.color === color).sort((a, b) => a.id - b.id);
+      order.forEach((name, i) => {
+        const p = list[i];
+        const chip = document.createElement('div');
+        chip.className = 'roster-chip';
+        chip.innerText = name;
+        if (p && !p.isAlive) {
+          chip.classList.add('dead');
+        } else {
+          chip.classList.add(color === 'RED' ? 'red-alive' : 'black-alive');
+        }
+        container.appendChild(chip);
+      });
+    }
+
+    function updateTurnIndicatorUI(text) {
+      const el = document.getElementById('turn-indicator');
+      el.innerText = text;
+      el.style.color = (currentTurn === 'PLAYER') ? '#fef08a' : '#38bdf8';
+    }
+
+    function showToast(text, durationMs = 2600) {
+      const toast = document.getElementById('toast-box');
+      toast.innerText = text;
+      toast.style.display = 'block';
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => { toast.style.display = 'none'; }, durationMs);
+    }
+
+    function cycleAIDifficulty() {
+      aiDifficulty = (aiDifficulty % 3) + 1;
+      const btn = document.getElementById('btn-diff');
+      btn.innerText = DIFFICULTY_NAMES[aiDifficulty - 1];
+      showToast(`阿喵難度已切換為：${DIFFICULTY_NAMES[aiDifficulty - 1]}`);
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const btn = document.getElementById('btn-sound');
+      btn.innerText = audioEnabled ? '🔊 音效' : '🔇 靜音';
+      btn.classList.toggle('active', audioEnabled);
+      showToast(audioEnabled ? '音效已開啟 🔊' : '音效已靜音 🔇');
+    }
+
+    function resetGame() {
+      document.getElementById('victory-modal').style.display = 'none';
+      initGameBoard();
+      showToast('新棋局已開打！請翻開任意一顆暗棋 🐾');
+    }
+
+    function openRulesModal() {
+      document.getElementById('rules-modal').style.display = 'flex';
+    }
+
+    function closeRulesModal(e) {
+      document.getElementById('rules-modal').style.display = 'none';
+    }
+
+    function closeVictoryAndRestart() {
+      document.getElementById('victory-modal').style.display = 'none';
+      resetGame();
+    }
+
+    /* ==========================================================================
+       14. 動畫渲染迴圈 (Render Animation Loop)
+       ========================================================================== */
+    function animate() {
+      // 有變化才重繪 (見 common.js)；選取中的棋子與目標光圈有呼吸效果
+      startRenderLoop({
+        renderer, scene, camera, controls,
+        hasIdleEffects: () => !!selectedPiece || !!(reticleGroup && reticleGroup.children.length > 0),
+        onFrame: animateEffects
+      });
+    }
+
+    function animateEffects() {
+      if (selectedPiece && selectedPiece.mesh) {
+        const time = performance.now() * 0.004;
+        selectedPiece.mesh.position.y = PIECE_Y + 0.12 + Math.sin(time) * 0.02;
+      }
+
+      if (reticleGroup && reticleGroup.children && reticleGroup.children.length > 0) {
+        const time = performance.now() * 0.003;
+        reticleGroup.children.forEach((ret, i) => {
+          ret.position.y = 0.075 + Math.sin(time + i * 0.6) * 0.012;
+        });
+      }
+    }
+
+    // 啟動遊戲
+    window.addEventListener('DOMContentLoaded', () => {
+      // T04：檢查 THREE 與 WebGL 是否可用
+      (function checkEnv() {
+        const screen = document.getElementById('load-screen');
+        const msg = document.getElementById('load-msg');
+        if (typeof THREE === 'undefined' || typeof startRenderLoop === 'undefined') {
+          msg.textContent = '😿 遊戲無法載入，請重新整理頁面或告訴老師';
+          return;
+        }
+        const c = document.createElement('canvas');
+        if (!c.getContext('webgl') && !c.getContext('experimental-webgl')) {
+          msg.textContent = '😿 這台電腦不支援 3D 顯示，請告訴老師';
+          return;
+        }
+        screen.style.display = 'none';
+      })();
+      initThreeScene();
+      build3DBoard();
+      initGameBoard();
+      layoutHud();
+      animate();
+    });
+  </script>
+</body>
+</html>

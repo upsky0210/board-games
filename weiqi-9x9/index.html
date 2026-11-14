@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>9x9 圍棋 3D (Go 9x9) - 阿喵老師的棋藝教室</title>
+
+  <!-- Three.js & OrbitControls from reliable CDNs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    /* ==========================================================================
+       全站基礎與現代毛玻璃暗色主題 (Dark Glassmorphism Theme)
+       ========================================================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #050b14;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif;
+      color: #f8fafc;
+      user-select: none;
+    }
+
+    #canvas-container, #canvas-container canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    /* 頂部導航列 */
+    .top-bar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+      pointer-events: none;
+      flex-wrap: wrap;
+    }
+
+    .brand-pill {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      padding: 8px 18px;
+      border-radius: 9999px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand-icon {
+      font-size: 22px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #fef08a 0%, #f59e0b 50%, #f97316 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+      flex-wrap: wrap;
+    }
+
+    .btn-pill {
+      background: rgba(15, 23, 42, 0.8);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 7px 15px;
+      min-height: 44px;
+      box-sizing: border-box;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+    }
+
+    .btn-pill:hover {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .btn-pill:active {
+      transform: translateY(0);
+    }
+
+    .btn-pill.active {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+    }
+
+    .btn-pass {
+      background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
+      border-color: #c084fc;
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(192, 132, 252, 0.4);
+    }
+    .btn-pass:hover {
+      background: linear-gradient(135deg, #6d28d9 0%, #7e22ce 100%);
+      border-color: #e9d5ff;
+    }
+
+    /* 左右雙方資訊卡 (HUD Panels) */
+    .hud-card {
+      position: absolute;
+      top: var(--hud-top, 76px);
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      padding: 12px 16px;
+      border-radius: 16px;
+      z-index: 10;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+      min-width: 170px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hud-left { left: 16px; }
+    .hud-right { right: 16px; }
+
+    .hud-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .player-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 9999px;
+    }
+
+    .badge-black {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid #475569;
+    }
+
+    .badge-white {
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+    }
+
+    .turn-indicator {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .turn-indicator.active {
+      background: #10b981;
+      color: #ffffff;
+      border-color: #34d399;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+    }
+
+    .hud-stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .hud-stat-val {
+      font-weight: 800;
+      color: #f8fafc;
+    }
+
+    /* 底部狀態列 */
+    .bottom-bar {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .status-msg-pill {
+      pointer-events: auto;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(12px);
+      padding: 9px 20px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #f8fafc;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      max-width: 60%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bottom-actions {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    
+    /* 「一棋定勝負」大提示橫幅 (Decisive Move Banner) */
+    .decisive-banner {
+      position: absolute;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, rgba(234, 88, 12, 0.95) 0%, rgba(245, 158, 11, 0.95) 100%);
+      border: 2px solid #fef08a;
+      box-shadow: 0 0 24px rgba(245, 158, 11, 0.8), 0 4px 16px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      padding: 8px 24px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #ffffff;
+      z-index: 25;
+      display: none;
+      animation: pulseDecisive 1.1s infinite alternate ease-in-out;
+      pointer-events: none;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+
+    .decisive-banner.rescue {
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.95) 0%, rgba(56, 189, 248, 0.95) 100%);
+      border-color: #bae6fd;
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.8), 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    @keyframes pulseDecisive {
+      from { transform: translateX(-50%) scale(0.96); box-shadow: 0 0 14px rgba(245, 158, 11, 0.5); }
+      to { transform: translateX(-50%) scale(1.04); box-shadow: 0 0 32px rgba(245, 158, 11, 0.95); }
+    }
+
+    /* 「大局已定一面倒」提前結算浮動橫幅 (Mercy Rule Banner) */
+    .mercy-banner {
+      position: absolute;
+      bottom: 66px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid #f59e0b;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 158, 11, 0.4);
+      backdrop-filter: blur(12px);
+      padding: 8px 18px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #fef08a;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      animation: floatSlow 2s infinite alternate ease-in-out;
+    }
+
+    .dead-mark-banner {
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: calc(100vw - 32px);
+      border-radius: 16px;
+      animation: none;
+      border-color: #a78bfa;
+      color: #ede9fe;
+    }
+
+    @keyframes floatSlow {
+      from { transform: translateX(-50%) translateY(0); }
+      to { transform: translateX(-50%) translateY(-4px); }
+    }
+
+    .btn-mercy-claim {
+      background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+      border: 1px solid #fef08a;
+      color: #ffffff;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.5);
+      transition: all 0.2s ease;
+    }
+    .btn-mercy-claim:hover {
+      filter: brightness(1.15);
+      transform: scale(1.05);
+    }
+
+    .btn-resign {
+      background: rgba(15, 23, 42, 0.8);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+    .btn-resign:hover {
+      background: rgba(225, 29, 72, 0.25);
+      border-color: #fb7185;
+      color: #ffffff;
+    }
+
+    /* 叫吃 (Atari) 警報橫幅 */
+    .atari-banner {
+      position: absolute;
+      top: 76px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, rgba(220, 38, 38, 0.9) 0%, rgba(185, 28, 28, 0.95) 100%);
+      border: 1px solid #f87171;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+      backdrop-filter: blur(8px);
+      padding: 7px 20px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #ffffff;
+      z-index: 15;
+      display: none;
+      animation: pulseAlert 1.2s infinite alternate ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes pulseAlert {
+      from { transform: translateX(-50%) scale(0.97); box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
+      to { transform: translateX(-50%) scale(1.03); box-shadow: 0 0 24px rgba(239, 68, 68, 0.85); }
+    }
+
+    /* 浮動提示 Toast */
+    .toast-pill {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid #f59e0b;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.4);
+      backdrop-filter: blur(14px);
+      padding: 14px 28px;
+      border-radius: 9999px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #fef08a;
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .toast-pill.visible {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+
+    /* 模態彈窗 (Modal Windows) */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(3, 7, 18, 0.75);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-window {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      border-radius: 20px;
+      max-width: 580px;
+      width: 100%;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 12px;
+    }
+
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+
+    .rule-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .rule-card strong {
+      color: #f59e0b;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .btn-large {
+      background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+      color: #ffffff;
+      border: none;
+      padding: 12px 24px;
+      min-height: 44px;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
+      transition: all 0.2s ease;
+      align-self: center;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .btn-large:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    /* 手機直向縮減 */
+    @media (max-width: 768px) {
+      .hud-card {
+        top: auto;
+        bottom: 60px;
+        min-width: 130px;
+        padding: 8px 12px;
+      }
+      .brand-title { display: none; }
+      .status-msg-pill { max-width: 80%; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- T04：載入遮罩，預設顯示；主程式確認 THREE 與 WebGL 正常後隱藏 -->
+  <div id="load-screen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1e293b;color:#fff;font-family:sans-serif;font-size:1.1rem;gap:1rem;">
+    <div id="load-msg">⏳ 遊戲載入中…</div>
+  </div>
+  <!-- 3D WebGL Canvas 容器 -->
+  <div id="canvas-container"></div>
+
+  <!-- 頂部功能導航列 -->
+  <header class="top-bar">
+    <div class="brand-pill">
+      <span class="brand-icon">🐱</span>
+      <span class="brand-title">阿喵老師的 9x9 圍棋教室</span>
+    </div>
+
+    <div class="top-actions">
+      <!-- 虛手 (Pass) 按鈕 -->
+      <button class="btn-pill btn-pass" id="btn-pass" onclick="handlePass()">⏭️ 虛手 (Pass)</button>
+      <button class="btn-pill btn-resign" id="btn-resign" onclick="openResignModal()">🏳️ 認輸</button>
+
+      <!-- 難度切換 -->
+      <button class="btn-pill" id="btn-diff" onclick="cycleAIDifficulty()">⭐ 幼幼貓</button>
+
+      <!-- 輔助模式開關 -->
+      <button class="btn-pill active" id="btn-liberties" onclick="toggleLibertiesVisual()">💡 氣數提示</button>
+      <button class="btn-pill" id="btn-territory" onclick="toggleTerritoryVisual()">📊 地盤估算</button>
+
+      <!-- 音效與規則 -->
+      <button class="btn-pill active" id="btn-sound" onclick="toggleAudio()">🔊 音效</button>
+      <button class="btn-pill" onclick="openRulesModal()">📜 規則指南</button>
+      <button class="btn-pill" onclick="resetGame()">🔄 重開</button>
+    </div>
+  </header>
+
+  <!-- 左側：黑方（玩家）資訊面板 -->
+  <div class="hud-card hud-left">
+    <div class="hud-header">
+      <span class="player-badge badge-black">⚫ 黑方 (你)</span>
+      <span class="turn-indicator" id="turn-black">思考中</span>
+    </div>
+    <div class="hud-stat-row">
+      <span>提子 (俘虜)：</span>
+      <span class="hud-stat-val" id="caps-black">0 子</span>
+    </div>
+    <div class="hud-stat-row">
+      <span>目前點數：</span>
+      <span class="hud-stat-val" id="score-black">0 點</span>
+    </div>
+  </div>
+
+  <!-- 右側：白方（阿喵 AI）資訊面板 -->
+  <div class="hud-card hud-right">
+    <div class="hud-header">
+      <span class="player-badge badge-white">⚪ 白方 (阿喵)</span>
+      <span class="turn-indicator" id="turn-white">等待中</span>
+    </div>
+    <div class="hud-stat-row">
+      <span>提子 (俘虜)：</span>
+      <span class="hud-stat-val" id="caps-white">0 子</span>
+    </div>
+    <div class="hud-stat-row">
+      <span>目前點數：</span>
+      <span class="hud-stat-val" id="score-white">5.5 點 (貼目)</span>
+    </div>
+  </div>
+
+  <!-- 打吃 (Atari) 警報橫幅 -->
+  <!-- 一棋定勝負大提示橫幅 -->
+  <div class="decisive-banner" id="decisive-banner">
+    🔥 一棋定勝負！落子於【金色絕殺點】，可一口氣提走對手全部主力！
+  </div>
+
+  <!-- 大局已定一面倒提前獲勝橫幅 -->
+  <!-- T17：終局標記死子 -->
+  <div class="mercy-banner dead-mark-banner" id="dead-mark-banner">
+    <span>☠️ 點棋子標記死子（半透明＝死子）</span>
+    <button class="btn-mercy-claim" onclick="confirmDeadStones()">✅ 確認結算</button>
+    <button class="btn-mercy-claim" onclick="resumeFromMarking()">↩️ 繼續下棋</button>
+  </div>
+  <div class="mercy-banner" id="mercy-banner">
+    <span>🏆 戰局已全面一面倒！黑方遙遙領先！</span>
+    <button class="btn-mercy-claim" onclick="claimEarlyVictory()">🏁 提前結算獲勝</button>
+  </div>
+
+  <div class="atari-banner" id="atari-banner">
+    ⚠️ 叫吃 (打吃)！有棋子只剩最後 1 口氣！
+  </div>
+
+  <!-- 底部狀態列 -->
+  <footer class="bottom-bar">
+    <div class="status-msg-pill" id="status-pill">
+      🐾 黑棋先下！點擊棋盤上的任意交叉點落子
+    </div>
+    <div class="bottom-actions">
+      <button class="btn-pill" id="btn-undo" onclick="undoMove()">↩️ 悔棋</button>
+      <button class="btn-pill" onclick="resetCamera()">🎯 視角重設</button>
+    </div>
+  </footer>
+
+  <!-- 浮動訊息 Toast -->
+  <div class="toast-pill" id="toast-pill"></div>
+
+  <!-- 認輸確認彈窗 (Resign Modal) -->
+  <div class="modal-overlay" id="resign-modal" onclick="closeResignModal(event)">
+    <div class="modal-window" style="max-width: 440px;" onclick="event.stopPropagation()">
+      <div class="modal-title">
+        <span>🏳️ 投降認輸確認</span>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <div style="font-size: 42px; margin-bottom: 8px;">🐱</div>
+        <p style="font-size: 15px; color: #f1f5f9; line-height: 1.6; margin-bottom: 12px;">
+          棋局局勢不利嗎？<br>
+          下圍棋輸贏很正常，隨時可以重來一局！
+        </p>
+        <p style="font-size: 13px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+          阿喵老師：「勝敗乃兵家常事！從每一盤棋學到新觀念才是最棒的～🐾」
+        </p>
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: center; margin-top: 8px;">
+        <button class="btn-pill" style="padding: 10px 20px; font-size: 14px;" onclick="closeResignModal()">
+          ✖️ 繼續對弈
+        </button>
+        <button class="btn-pill" style="padding: 10px 22px; font-size: 14px; background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); border-color: #fda4af;" onclick="confirmPlayerResign()">
+          🏳️ 確定認輸重開
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 規則教學彈窗 (Rules Modal) -->
+  <div class="modal-overlay" id="rules-modal" onclick="closeRulesModal(event)">
+    <div class="modal-window" onclick="event.stopPropagation()">
+      <div class="modal-title">
+        <span>📜 阿喵老師的 3 分鐘圍棋速成指南</span>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 15px; color: #fef08a;">
+          不用怕！圍棋規則其實比象棋更簡單，只要學會 4 個核心觀念就能開心對弈：
+        </p>
+
+        <div class="rule-card">
+          <strong>1. 棋子下在線條「交叉點」上</strong>
+          圍棋一律下在格線交叉點，黑棋先下、白棋後下，一人下一步，下定後不能移動。9x9 棋盤是專門為新手與小學生設計的迷你戰場，大約 5~10 分鐘即可完成一局！
+        </div>
+
+        <div class="rule-card">
+          <strong>2. 棋子的呼吸通道「氣」與「提子（吃子）」</strong>
+          一顆棋子上下左右相鄰的 4 個空格，就是它的「氣（呼吸孔）」。
+          <ul style="padding-left: 20px; margin-top: 4px;">
+            <li>同色相連的棋子會「連成一整塊」，<strong>共享所有呼吸的氣</strong>！</li>
+            <li>如果對手把你這塊棋<strong>所有的氣全部堵死（0 氣）</strong>，這塊棋就會被<strong>「提走（吃掉）」</strong>！</li>
+          </ul>
+        </div>
+
+        <div class="rule-card">
+          <strong>3. 什麼是「叫吃 (打吃 / Atari)」？</strong>
+          當一塊棋只剩下<strong>最後 1 口氣</strong>時，就叫做「叫吃」！本遊戲會為你亮起<strong>紅色警戒光圈</strong>。這時候你可以趕快逃跑（多連一顆增加氣），或是直接把對手封死吃掉！
+        </div>
+
+        <div class="rule-card">
+          <strong>4. 不能自己去送死（禁著點）與「打劫」</strong>
+          <ul style="padding-left: 20px; margin-top: 4px;">
+            <li><strong>禁著點（自殺禁入）</strong>：不能下在已經「0 氣」且無法吃掉對手的地方（系統會自動幫你防呆）。</li>
+            <li><strong>打劫</strong>：不能連續來回互吃同一顆棋子無限循環，若發生打劫必須先在別的地方下一手。</li>
+          </ul>
+        </div>
+
+        <div class="rule-card">
+          <strong>5. 怎麼分出勝負？（圍地盤）</strong>
+          圍棋真正的目標是<strong>「比誰圍的地盤（空交叉點）大」</strong>，而不只是吃子！
+          當雙方都覺得沒有地方可以下時，各自點擊「虛手 (Pass)」，對局即結束。
+          系統會自動統計：<strong>【盤面上自己的棋子數】＋【圍到的空地】</strong>（子空皆地），黑棋貼 5.5 點給白棋，點數高者獲勝！所以把對手的死子提掉不會吃虧。雙方都按「虛手」後，點選被圍死的棋子標記為死子，再按「確認結算」。
+        </div>
+      </div>
+      <button class="btn-large" onclick="closeRulesModal()">我瞭解了！開始對弈 🐾</button>
+    </div>
+  </div>
+
+  <!-- 終局結算彈窗 (Victory / Game Over Modal) -->
+  <div class="modal-overlay" id="gameover-modal">
+    <div class="modal-window" style="max-width: 480px;">
+      <div class="modal-title">
+        <span id="gameover-title">🎉 棋局結束！勝負揭曉</span>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <div id="gameover-winner-icon" style="font-size: 50px; margin: 8px 0;">🏆</div>
+        <h3 id="gameover-winner-msg" style="font-size: 20px; color: #f59e0b; margin-bottom: 8px;"></h3>
+        <p id="gameover-detail-msg" style="font-size: 14px; color: #cbd5e1; line-height: 1.6;"></p>
+
+        <div style="background: rgba(255,255,255,0.05); padding: 14px; border-radius: 12px; margin-top: 10px; display: flex; justify-content: space-around;">
+          <div>
+            <div style="font-size: 13px; color: #94a3b8;">⚫ 黑方總分</div>
+            <div style="font-size: 22px; font-weight: 800; color: #38bdf8;" id="final-black-score">0</div>
+          </div>
+          <div style="border-left: 1px solid rgba(255,255,255,0.1);"></div>
+          <div>
+            <div style="font-size: 13px; color: #94a3b8;">⚪ 白方總分 (含貼目)</div>
+            <div style="font-size: 22px; font-weight: 800; color: #f59e0b;" id="final-white-score">5.5</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-large" onclick="closeGameOverAndRestart()">再來一局 🐾</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       3D WebGL 圍棋引擎與演算法系統
+       ========================================================================== -->
+  <!-- 五款遊戲共用的程式 (局號、資源釋放、有變化才重繪) -->
+  <script src="../common.js"></script>
+  <script>
+    /* ==========================================================================
+       1. 常數與全域遊戲狀態
+       ========================================================================== */
+    const BOARD_SIZE = 9;       // 9x9 格點
+    const CELL_SIZE = 1.15;     // 格子間距
+    const BOARD_WIDTH = 12.0;   // 榧木實木棋盤寬度
+    const BOARD_HEIGHT = 0.85;  // 棋盤厚度
+    const STONE_RADIUS = 0.49;  // 雙凸棋子半徑
+    const STONE_Y = BOARD_HEIGHT / 2 + 0.12;
+
+    const EMPTY = 0;
+    const BLACK = 1; // 玩家 (先行)
+    const WHITE = 2; // 阿喵 AI (後手，貼 5.5 目)
+    const KOMI = 5.5;
+
+    // 棋盤邏輯陣列 (0:空, 1:黑, 2:白)
+    let board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(EMPTY));
+    let stoneMeshes = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+
+    let currentTurn = BLACK;
+    let isGameOver = false;
+    let isAIThinking = false;
+    let consecutivePasses = 0;
+    // gameEpoch、later() 定義在 common.js
+
+    let blackCaptures = 0;
+    let whiteCaptures = 0;
+    let koPoint = null; // 打劫禁著點 { r, c }
+
+    let moveHistory = []; // 悔棋棧
+
+    // 新手輔助功能開關
+    let showLibertiesVisual = true;
+    let showTerritoryVisual = false;
+    let isAudioEnabled = true;
+
+    // AI 難度：'NOVICE' (幼幼貓) | 'BEGINNER' (小弈貓) | 'MASTER' (大師貓)
+    let aiDifficulty = 'NOVICE';
+
+    // Three.js 核心組件
+    let scene, camera, renderer, controls;
+    let boardMesh, hoverIndicatorMesh;
+    let libertiesMarkersGroup, territoryMarkersGroup, atariRingsGroup, decisiveMarkersGroup;
+    let raycaster, mouse;
+    let boardPlaneIntersect;
+
+    // Web Audio API
+    let audioCtx = null;
+
+    /* ==========================================================================
+       2. Web Audio API 音效引擎 (木石碰撞聲、提子、打吃、結算)
+       ========================================================================== */
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!isAudioEnabled) return;
+      try {
+        initAudio();
+        const now = audioCtx.currentTime;
+
+        if (type === 'clack') {
+          // 極致逼真的「啪！」清脆木石敲擊聲 (正統厚榧木落子共振)
+          const osc1 = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(540, now);
+          osc1.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(880, now);
+          osc2.frequency.exponentialRampToValueAtTime(220, now + 0.06);
+
+          gainNode.gain.setValueAtTime(0.7, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+          osc1.connect(gainNode);
+          osc2.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 0.1);
+          osc2.stop(now + 0.1);
+        } else if (type === 'capture') {
+          // 提子 (吃子) 清脆星光飛掠音
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+          osc.frequency.exponentialRampToValueAtTime(1320, now + 0.3);
+
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.32);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        } else if (type === 'atari') {
+          // 打吃叫吃警示音 (叮咚警報)
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(784, now); // G5
+          osc.frequency.setValueAtTime(1046.5, now + 0.12); // C6
+
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.32);
+        } else if (type === 'illegal') {
+          // 禁著點 / 自殺手低沉阻擋音
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(130, now);
+          osc.frequency.linearRampToValueAtTime(80, now + 0.15);
+
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else if (type === 'win') {
+          // 勝利大和弦
+          [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.2, now + idx * 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.7);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now + idx * 0.1);
+            osc.stop(now + idx * 0.1 + 0.8);
+          });
+        }
+      } catch (e) {
+        console.warn('Audio play error:', e);
+      }
+    }
+
+    function toggleAudio() {
+      isAudioEnabled = !isAudioEnabled;
+      const btn = document.getElementById('btn-sound');
+      btn.innerText = isAudioEnabled ? '🔊 音效' : '🔇 靜音';
+      btn.classList.toggle('active', isAudioEnabled);
+      showToast(isAudioEnabled ? '音效已開啟' : '音效已靜音');
+    }
+
+    /* ==========================================================================
+       3. 圍棋核心演算法：氣、相連塊、提子、禁著點、打劫、地盤估算
+       ========================================================================== */
+    function getNeighbors(r, c) {
+      const neighbors = [];
+      const deltas = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      for (const [dr, dc] of deltas) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+          neighbors.push({ r: nr, c: nc });
+        }
+      }
+      return neighbors;
+    }
+
+    // 尋找 (r, c) 棋子所屬的整塊棋 (Group) 與其所有公用「氣」(Liberties)
+    function getGroupAndLiberties(bd, startR, startC) {
+      const color = bd[startR][startC];
+      if (color === EMPTY) return { group: [], liberties: new Set() };
+
+      const group = [];
+      const liberties = new Set();
+      const visited = new Set();
+      const stack = [{ r: startR, c: startC }];
+      visited.add(`${startR},${startC}`);
+
+      while (stack.length > 0) {
+        const { r, c } = stack.pop();
+        group.push({ r, c });
+
+        for (const n of getNeighbors(r, c)) {
+          const key = `${n.r},${n.c}`;
+          if (bd[n.r][n.c] === EMPTY) {
+            liberties.add(key);
+          } else if (bd[n.r][n.c] === color && !visited.has(key)) {
+            visited.add(key);
+            stack.push({ r: n.r, c: n.c });
+          }
+        }
+      }
+
+      return { group, liberties };
+    }
+
+    // 檢驗落子合法性 (回傳 { legal, reason, capturedGroups })
+    function validateMove(bd, r, c, color, currentKo) {
+      if (bd[r][c] !== EMPTY) {
+        return { legal: false, reason: '該交叉點已有棋子！' };
+      }
+
+      if (currentKo && currentKo.r === r && currentKo.c === c) {
+        return { legal: false, reason: '打劫禁著點！不能立即復原上一手棋型，請先在別處尋劫。' };
+      }
+
+      const oppColor = (color === BLACK ? WHITE : BLACK);
+
+      // 虛擬落子測試
+      bd[r][c] = color;
+      const capturedStones = [];
+      const visitedOpp = new Set();
+
+      for (const n of getNeighbors(r, c)) {
+        const nKey = `${n.r},${n.c}`;
+        if (bd[n.r][n.c] === oppColor && !visitedOpp.has(nKey)) {
+          const { group, liberties } = getGroupAndLiberties(bd, n.r, n.c);
+          group.forEach(pt => visitedOpp.add(`${pt.r},${pt.c}`));
+          if (liberties.size === 0) {
+            capturedStones.push(...group);
+          }
+        }
+      }
+
+      // 若未吃掉任何敵子，檢驗自身是否為自殺手 (0 氣)
+      if (capturedStones.length === 0) {
+        const { liberties: myLibs } = getGroupAndLiberties(bd, r, c);
+        if (myLibs.size === 0) {
+          bd[r][c] = EMPTY; // 還原
+          return { legal: false, reason: '禁著點（無氣自殺手）！不能走入完全沒有氣的絕境。' };
+        }
+      }
+
+      bd[r][c] = EMPTY; // 還原
+      return { legal: true, capturedStones };
+    }
+
+    // 計算打劫點 (單子反提)
+    function calculateKoPoint(placedR, placedC, capturedStones, bd, color) {
+      if (capturedStones.length === 1) {
+        const { group, liberties } = getGroupAndLiberties(bd, placedR, placedC);
+        // 落子的棋塊只有 1 顆、只剩 1 口氣，且該氣恰好是被提走那顆的位置，才構成單子打劫
+        // (若落子後是 2 顆以上的棋塊，對方反提是合法的「打二還一」，不算劫)
+        if (group.length === 1 && liberties.size === 1) {
+          const onlyLibKey = liberties.values().next().value;
+          const [lr, lc] = onlyLibKey.split(',').map(Number);
+          if (lr === capturedStones[0].r && lc === capturedStones[0].c) {
+            return { r: capturedStones[0].r, c: capturedStones[0].c };
+          }
+        }
+      }
+      return null;
+    }
+
+    // 地盤估算與泛洪演算法 (Flood Fill Territory Scoring)
+    function calculateTerritory(bd) {
+      const visited = new Set();
+      const territoryMap = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(EMPTY));
+      const regionSizeMap = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
+      let blackTerritory = 0;
+      let whiteTerritory = 0;
+
+      // 盤上不到 2 顆子時還談不上地盤 (避免第一手後顯示「黑方 80」)
+      let stoneCount = 0;
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (bd[r][c] !== EMPTY) stoneCount++;
+        }
+      }
+      if (stoneCount < 2) return { blackTerritory, whiteTerritory, territoryMap, regionSizeMap };
+
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          const key = `${r},${c}`;
+          if (bd[r][c] === EMPTY && !visited.has(key)) {
+            const region = [];
+            const stack = [{ r, c }];
+            visited.add(key);
+            const borderingColors = new Set();
+
+            while (stack.length > 0) {
+              const curr = stack.pop();
+              region.push(curr);
+
+              for (const n of getNeighbors(curr.r, curr.c)) {
+                const nKey = `${n.r},${n.c}`;
+                if (bd[n.r][n.c] === EMPTY && !visited.has(nKey)) {
+                  visited.add(nKey);
+                  stack.push(n);
+                } else if (bd[n.r][n.c] !== EMPTY) {
+                  borderingColors.add(bd[n.r][n.c]);
+                }
+              }
+            }
+
+            region.forEach(pt => { regionSizeMap[pt.r][pt.c] = region.length; });
+
+            // 若整片空域僅被單一陣營包圍，則全數歸屬該陣營地盤！
+            if (borderingColors.size === 1) {
+              const owner = borderingColors.values().next().value;
+              if (owner === BLACK) {
+                blackTerritory += region.length;
+                region.forEach(pt => { territoryMap[pt.r][pt.c] = BLACK; });
+              } else if (owner === WHITE) {
+                whiteTerritory += region.length;
+                region.forEach(pt => { territoryMap[pt.r][pt.c] = WHITE; });
+              }
+            }
+          }
+        }
+      }
+
+      return { blackTerritory, whiteTerritory, territoryMap, regionSizeMap };
+    }
+
+    // 計分採「子空皆地」：盤面上自己的棋子數 + 圍住的空點 (白方另加貼目)。
+    // 這樣把對方的死子提掉、或在自己地盤裡補棋都不會吃虧，適合初學者。
+    function computeAreaScores(bd) {
+      const { blackTerritory, whiteTerritory, territoryMap, regionSizeMap } = calculateTerritory(bd);
+      let blackStones = 0;
+      let whiteStones = 0;
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (bd[r][c] === BLACK) blackStones++;
+          else if (bd[r][c] === WHITE) whiteStones++;
+        }
+      }
+      return {
+        blackStones, whiteStones, blackTerritory, whiteTerritory, territoryMap, regionSizeMap,
+        black: blackStones + blackTerritory,
+        white: whiteStones + whiteTerritory + KOMI
+      };
+    }
+
+    // 搜尋全盤所有處於「叫吃 (只剩 1 口氣)」狀態的棋塊
+    function findAtariGroups(bd) {
+      const atariGroups = [];
+      const visited = new Set();
+
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          const key = `${r},${c}`;
+          if (bd[r][c] !== EMPTY && !visited.has(key)) {
+            const { group, liberties } = getGroupAndLiberties(bd, r, c);
+            group.forEach(pt => visited.add(`${pt.r},${pt.c}`));
+
+            if (liberties.size === 1) {
+              const onlyLibKey = liberties.values().next().value;
+              const [lr, lc] = onlyLibKey.split(',').map(Number);
+              atariGroups.push({
+                color: bd[r][c],
+                group,
+                lastLiberty: { r: lr, c: lc }
+              });
+            }
+          }
+        }
+      }
+      return atariGroups;
+    }
+
+    
+    /* ==========================================================================
+       3.5 「一棋定勝負」(Decisive Move) 大提示演算法
+       ========================================================================== */
+    let currentDecisiveMoves = [];
+    let highlightedTargetStones = [];
+
+    // 搜尋全盤是否存在「一棋定勝負（提走 >= 3 顆主力敵子）」或「命懸一線（拯救 >= 3 顆主力友軍）」的絕殺急所
+    function findDecisiveMoves(bd, color, currentKo) {
+      const opp = (color === BLACK ? WHITE : BLACK);
+      const decisiveList = [];
+
+      // 1. 檢驗【絕殺點 (KILL)】：當前玩家落子於該點，能一口氣提走 >= 3 顆敵子
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          const val = validateMove(bd, r, c, color, currentKo);
+          if (val.legal && val.capturedStones && val.capturedStones.length >= 3) {
+            decisiveList.push({
+              type: 'KILL',
+              r, c,
+              count: val.capturedStones.length,
+              targetStones: val.capturedStones
+            });
+          }
+        }
+      }
+
+      // 2. 檢驗【救命急所 (RESCUE)】：己方主力棋塊（>= 3 顆）只剩最後 1 口氣，該口氣就是保命急所
+      const visitedMy = new Set();
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          const key = `${r},${c}`;
+          if (bd[r][c] === color && !visitedMy.has(key)) {
+            const { group, liberties } = getGroupAndLiberties(bd, r, c);
+            group.forEach(pt => visitedMy.add(`${pt.r},${pt.c}`));
+
+            if (group.length >= 3 && liberties.size === 1) {
+              const onlyLibKey = liberties.values().next().value;
+              const [lr, lc] = onlyLibKey.split(',').map(Number);
+              // 確認此逃命點為合法著點
+              const val = validateMove(bd, lr, lc, color, currentKo);
+              if (val.legal) {
+                decisiveList.push({
+                  type: 'RESCUE',
+                  r: lr, c: lc,
+                  count: group.length,
+                  targetStones: group
+                });
+              }
+            }
+          }
+        }
+      }
+
+      return decisiveList;
+    }
+
+    // 渲染 3D 棋盤上的「一棋定勝負」絕殺光環與橫幅提示
+    function renderDecisiveMarkers() {
+      // 清空舊有絕殺標記
+      while (decisiveMarkersGroup.children.length > 0) {
+        const obj = decisiveMarkersGroup.children[0];
+        decisiveMarkersGroup.remove(obj);
+        disposeObject3D(obj);
+      }
+
+      const banner = document.getElementById('decisive-banner');
+      currentDecisiveMoves = findDecisiveMoves(board, currentTurn, koPoint);
+
+      if (currentDecisiveMoves.length > 0 && !isGameOver) {
+        const bestDecisive = currentDecisiveMoves.reduce((max, d) => d.count > max.count ? d : max, currentDecisiveMoves[0]);
+        const isKill = (bestDecisive.type === 'KILL');
+
+        banner.style.display = 'block';
+        if (isKill) {
+          banner.className = 'decisive-banner';
+          banner.innerText = currentTurn === BLACK 
+            ? `🔥 一棋定勝負！落子於【金色絕殺點】，可一口氣提走對手 ${bestDecisive.count} 顆白棋主力！`
+            : `⚠️ 阿喵抓到了絕殺點！小心你的 ${bestDecisive.count} 顆主力黑棋！`;
+        } else {
+          banner.className = 'decisive-banner rescue';
+          banner.innerText = currentTurn === BLACK 
+            ? `🛡️ 命懸一線！你的主力軍團 (${bestDecisive.count} 子) 只剩最後 1 口氣，快落子於【水藍急所】保命！`
+            : `🛡️ 阿喵的主力軍團正在尋求逃生！`;
+        }
+
+        // 3D 棋盤上的發光絕殺點光環
+        currentDecisiveMoves.forEach(d => {
+          const w = gridToWorld(d.r, d.c);
+
+          // 外層脈衝大光環
+          const ringGeo = new THREE.RingGeometry(0.28, 0.62, 32);
+          ringGeo.rotateX(-Math.PI / 2);
+          const ringMat = new THREE.MeshBasicMaterial({
+            color: d.type === 'KILL' ? 0xf59e0b : 0x0284c7,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.9,
+            depthWrite: false
+          });
+          const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+          ringMesh.position.set(w.x, STONE_Y + 0.025, w.z);
+          ringMesh.userData = { isDecisiveRing: true };
+          decisiveMarkersGroup.add(ringMesh);
+
+          // 核心十字金芒星
+          const starGeo = new THREE.CircleGeometry(0.18, 16);
+          starGeo.rotateX(-Math.PI / 2);
+          const starMat = new THREE.MeshBasicMaterial({
+            color: d.type === 'KILL' ? 0xfef08a : 0xbae6fd,
+            transparent: true,
+            opacity: 0.95,
+            depthWrite: false
+          });
+          const starMesh = new THREE.Mesh(starGeo, starMat);
+          starMesh.position.set(w.x, STONE_Y + 0.03, w.z);
+          decisiveMarkersGroup.add(starMesh);
+        });
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    /* ==========================================================================
+       4. 3D 場景、日本本榧木棋盤、雙凸曜石黑／白玉蛤碁石
+       ========================================================================== */
+    function initThreeScene() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x060c18);
+
+      camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+      camera.position.set(0, 14.5, 11.5);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.maxPolarAngle = Math.PI / 2.15;
+      controls.minDistance = 6;
+      controls.maxDistance = 24;
+      controls.target.set(0, 0, 0);
+
+      // 光影配置
+      const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.55);
+      scene.add(ambientLight);
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.35);
+      scene.add(hemiLight);
+
+      const mainLight = new THREE.DirectionalLight(0xfffdf5, 0.85);
+      mainLight.position.set(6, 18, 9);
+      mainLight.castShadow = true;
+      mainLight.shadow.mapSize.width = 1024;
+      mainLight.shadow.mapSize.height = 1024;
+      mainLight.shadow.camera.near = 1;
+      mainLight.shadow.camera.far = 40;
+      const d = 8;
+      mainLight.shadow.camera.left = -d;
+      mainLight.shadow.camera.right = d;
+      mainLight.shadow.camera.top = d;
+      mainLight.shadow.camera.bottom = -d;
+      mainLight.shadow.bias = -0.0005;
+      scene.add(mainLight);
+
+      const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.25);
+      rimLight.position.set(-8, 8, -10);
+      scene.add(rimLight);
+
+      // 分組節點
+      libertiesMarkersGroup = new THREE.Group();
+      territoryMarkersGroup = new THREE.Group();
+      atariRingsGroup = new THREE.Group();
+      scene.add(libertiesMarkersGroup);
+      scene.add(territoryMarkersGroup);
+      scene.add(atariRingsGroup);
+      decisiveMarkersGroup = new THREE.Group();
+      scene.add(decisiveMarkersGroup);
+
+      // 射線與碰撞平面
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+      boardPlaneIntersect = new THREE.Plane(new THREE.Vector3(0, 1, 0), -STONE_Y);
+
+      build3DBoard();
+      createHoverIndicator();
+
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('pointermove', onPointerMove);
+      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    }
+
+    // 建立正統日本本榧木紋 9x9 格線實木棋盤
+    function build3DBoard() {
+      // 動態生成榧木木紋與 9x9 精密格線質地
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      // 榧木底色木紋漸層
+      const grad = ctx.createLinearGradient(0, 0, 1024, 1024);
+      grad.addColorStop(0, '#ebbd74');
+      grad.addColorStop(0.3, '#dfac5d');
+      grad.addColorStop(0.7, '#d69e4d');
+      grad.addColorStop(1, '#c98f3e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      // 年輪細絲
+      ctx.strokeStyle = 'rgba(120, 60, 15, 0.08)';
+      ctx.lineWidth = 1;
+      for (let y = 0; y < 1024; y += 4) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + Math.sin(y * 0.03) * 6);
+        ctx.lineTo(1024, y + Math.cos(y * 0.02) * 5);
+        ctx.stroke();
+      }
+
+      // 9x9 圍棋格線
+      const span3D = (BOARD_SIZE - 1) * CELL_SIZE;
+      const ratio = span3D / BOARD_WIDTH;
+      const spanTex = 1024 * ratio;
+      const margin = (1024 - spanTex) / 2;
+      const step = spanTex / (BOARD_SIZE - 1); // 8 間隔 = 9 線
+
+      ctx.strokeStyle = '#2d1808';
+      ctx.lineWidth = 3.5;
+
+      for (let i = 0; i < 9; i++) {
+        const pos = margin + i * step;
+        // 橫線
+        ctx.beginPath();
+        ctx.moveTo(margin, pos);
+        ctx.lineTo(1024 - margin, pos);
+        ctx.stroke();
+
+        // 直線
+        ctx.beginPath();
+        ctx.moveTo(pos, margin);
+        ctx.lineTo(pos, 1024 - margin);
+        ctx.stroke();
+      }
+
+      // 外邊框加粗
+      ctx.lineWidth = 6;
+      ctx.strokeRect(margin, margin, 1024 - margin * 2, 1024 - margin * 2);
+
+      // 5 個黑色星位圓點 (4 個角星位 + 1 天元)
+      // 9x9 星位在第 3、7 線 (下標 2, 6) 與 第 5 線天元 (下標 4)
+      const starIndices = [
+        [2, 2], [2, 6],
+        [4, 4], // 天元
+        [6, 2], [6, 6]
+      ];
+
+      ctx.fillStyle = '#2d1808';
+      for (const [sr, sc] of starIndices) {
+        const x = margin + sc * step;
+        const y = margin + sr * step;
+        ctx.beginPath();
+        ctx.arc(x, y, 9, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 坐標標註 (A~J 無 I, 1~9)
+      ctx.font = 'bold 24px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#5c3514';
+
+      const colLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
+      for (let i = 0; i < 9; i++) {
+        const pos = margin + i * step;
+        // 頂欄字母
+        ctx.fillText(colLetters[i], pos, margin - 54);
+        // 底欄字母
+        ctx.fillText(colLetters[i], pos, 1024 - margin + 54);
+        // 左側數字
+        ctx.fillText((9 - i).toString(), margin - 54, pos);
+        // 右側數字
+        ctx.fillText((9 - i).toString(), 1024 - margin + 54, pos);
+      }
+
+      const boardTexture = new THREE.CanvasTexture(canvas);
+      boardTexture.anisotropy = 8;
+
+      // 榧木本體 Mesh
+      const boardGeo = new THREE.BoxGeometry(BOARD_WIDTH, BOARD_HEIGHT, BOARD_WIDTH);
+      const sideMat = new THREE.MeshStandardMaterial({
+        color: 0x9a6a32,
+        roughness: 0.45,
+        metalness: 0.05
+      });
+      const topMat = new THREE.MeshStandardMaterial({
+        map: boardTexture,
+        roughness: 0.32,
+        metalness: 0.04
+      });
+
+      const materials = [sideMat, sideMat, topMat, sideMat, sideMat, sideMat];
+      boardMesh = new THREE.Mesh(boardGeo, materials);
+      boardMesh.position.y = 0;
+      boardMesh.receiveShadow = true;
+      boardMesh.castShadow = true;
+      scene.add(boardMesh);
+
+      // 下層防撞底座陰影
+      const baseGeo = new THREE.BoxGeometry(BOARD_WIDTH + 0.4, 0.1, BOARD_WIDTH + 0.4);
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e150d, roughness: 0.8 });
+      const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+      baseMesh.position.y = -BOARD_HEIGHT / 2 - 0.05;
+      baseMesh.receiveShadow = true;
+      scene.add(baseMesh);
+    }
+
+    // 滑鼠懸停落點實心圓形指示器 (符合規範避免穿透)
+    function createHoverIndicator() {
+      const geo = new THREE.CircleGeometry(STONE_RADIUS * 0.88, 32);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xfbbf24,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false
+      });
+      hoverIndicatorMesh = new THREE.Mesh(geo, mat);
+      hoverIndicatorMesh.position.y = STONE_Y + 0.01;
+      scene.add(hoverIndicatorMesh);
+    }
+
+    // 建立正統日式雙凸圍棋子 3D 幾何與材質 (曜石黑 vs 蛤碁石白)
+    function createStone3DMesh(color) {
+      // 雙凸圓潤圍棋子：壓扁的高細分球體
+      const geo = new THREE.SphereGeometry(STONE_RADIUS, 32, 20);
+      geo.scale(1.0, 0.40, 1.0); // 圍棋專屬扁平雙凸造型
+
+      let mat;
+      if (color === BLACK) {
+        mat = new THREE.MeshStandardMaterial({
+          color: 0x111317,
+          roughness: 0.28,
+          metalness: 0.08
+        });
+      } else {
+        mat = new THREE.MeshStandardMaterial({
+          color: 0xfbf9f5,
+          roughness: 0.18,
+          metalness: 0.02
+        });
+      }
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return mesh;
+    }
+
+    // 將 (r, c) 網格座標轉換為 3D 世界座標
+    function gridToWorld(r, c) {
+      const halfSize = (BOARD_SIZE - 1) / 2; // 4
+      const x = (c - halfSize) * CELL_SIZE;
+      const z = (r - halfSize) * CELL_SIZE;
+      return { x, z };
+    }
+
+    function worldToGrid(x, z) {
+      const halfSize = (BOARD_SIZE - 1) / 2;
+      const c = Math.round(x / CELL_SIZE + halfSize);
+      const r = Math.round(z / CELL_SIZE + halfSize);
+      if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
+        return { r, c };
+      }
+      return null;
+    }
+
+    /* ==========================================================================
+       5. 互動操作防呆、落子物理動畫與提子特效
+       ========================================================================== */
+    let lastHoverGrid = null;
+    let pointerDownPos = { x: 0, y: 0 };
+    let pointerDownOnBoard = false; // 這次點擊是否從棋盤畫面按下
+
+    function onPointerMove(e) {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      if (isGameOver || isAIThinking || isMarkingDead) {
+        hoverIndicatorMesh.material.opacity = 0;
+        return;
+      }
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersection = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(boardPlaneIntersect, intersection)) {
+        const gridPos = worldToGrid(intersection.x, intersection.z);
+
+        if (gridPos && board[gridPos.r][gridPos.c] === EMPTY) {
+          const world = gridToWorld(gridPos.r, gridPos.c);
+          hoverIndicatorMesh.position.x = world.x;
+          hoverIndicatorMesh.position.z = world.z;
+          hoverIndicatorMesh.material.opacity = 0.55;
+
+          // 懸停時若開啟氣數輔助，實時呈現這手棋下去後的氣數
+          if (showLibertiesVisual && (!lastHoverGrid || lastHoverGrid.r !== gridPos.r || lastHoverGrid.c !== gridPos.c)) {
+            previewLibertiesOnHover(gridPos.r, gridPos.c, currentTurn);
+          }
+                    // 若懸停在絕殺點上，使即將被提走或拯救的棋子產生浮動共鳴
+          highlightDecisiveTargetStones(gridPos.r, gridPos.c);
+          lastHoverGrid = gridPos;
+        } else {
+          hoverIndicatorMesh.material.opacity = 0;
+          if (lastHoverGrid) {
+            clearLibertiesMarkers();
+            lastHoverGrid = null;
+          }
+        }
+      }
+    }
+
+    function onPointerDown(e) {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+      pointerDownOnBoard = true;
+    }
+
+    window.addEventListener('pointerup', (e) => {
+      // 避免旋轉 3D 視角時誤判為點擊
+      // 只處理「從棋盤畫面按下」的點擊，避免點 UI 按鈕時誤落子
+      if (!pointerDownOnBoard) return;
+      pointerDownOnBoard = false;
+
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      if (dist > 6) return;
+
+      // 觸控點一下不會產生 pointermove，必須用這次事件的座標重新計算落點
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // 標記死子模式：點棋子切換整塊的死活
+      if (isMarkingDead) {
+        raycaster.setFromCamera(mouse, camera);
+        const hit = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(boardPlaneIntersect, hit)) {
+          const g = worldToGrid(hit.x, hit.z);
+          if (g) toggleDeadGroup(g.r, g.c);
+        }
+        return;
+      }
+
+      if (isGameOver || isAIThinking || currentTurn !== BLACK) return;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersection = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(boardPlaneIntersect, intersection)) {
+        const gridPos = worldToGrid(intersection.x, intersection.z);
+        if (gridPos) {
+          attemptMove(gridPos.r, gridPos.c, BLACK);
+        }
+      }
+    });
+
+    // 執行落子邏輯
+    function attemptMove(r, c, color) {
+      const validation = validateMove(board, r, c, color, koPoint);
+
+      if (!validation.legal) {
+        playSound('illegal');
+        showToast(`🚫 ${validation.reason}`);
+        return false;
+      }
+
+      // 落子成功！記錄悔棋狀態
+      saveHistoryState();
+
+      // 放置棋子
+      board[r][c] = color;
+      const mesh = createStone3DMesh(color);
+      const world = gridToWorld(r, c);
+      mesh.position.set(world.x, STONE_Y, world.z);
+      scene.add(mesh);
+      stoneMeshes[r][c] = mesh;
+
+      // 落子彈性動畫 (從微上方 0.4 處落下)
+      mesh.position.y = STONE_Y + 0.35;
+      const dropStart = performance.now();
+      function animateDrop(now) {
+        const p = Math.min((now - dropStart) / 110, 1.0);
+        mesh.position.y = (STONE_Y + 0.35) - 0.35 * (p * p);
+        if (p < 1.0) requestAnimationFrame(animateDrop);
+        else mesh.position.y = STONE_Y;
+      }
+      requestAnimationFrame(animateDrop);
+      playSound('clack');
+
+      // 處理提子 (吃子)
+      const captured = validation.capturedStones;
+      if (captured.length > 0) {
+        if (color === BLACK) blackCaptures += captured.length;
+        else whiteCaptures += captured.length;
+
+        // 提子升騰消散動畫
+        captured.forEach(pt => {
+          board[pt.r][pt.c] = EMPTY;
+          const capMesh = stoneMeshes[pt.r][pt.c];
+          stoneMeshes[pt.r][pt.c] = null;
+          if (capMesh) {
+            animateCaptureFade(capMesh);
+          }
+        });
+        playSound('capture');
+        showToast(color === BLACK ? `💥 漂亮提子！吃掉了對手 ${captured.length} 顆白子！` : `💥 阿喵提子！吃掉了你的 ${captured.length} 顆黑子！`);
+      }
+
+      // 更新打劫禁著點
+      koPoint = calculateKoPoint(r, c, captured, board, color);
+
+      // 重置虛手計數
+      consecutivePasses = 0;
+
+      // 換手
+      currentTurn = (color === BLACK ? WHITE : BLACK);
+      updateHUD();
+      checkAndRenderVisualAids();
+
+      // 若輪到白棋（AI），排程 AI 行動
+      if (currentTurn === WHITE && !isGameOver) {
+        isAIThinking = true;
+        document.getElementById('status-pill').innerText = '🐱 阿喵老師正在凝思佈局中...';
+        later(makeAIMove, 450);
+      }
+
+      return true;
+    }
+
+    // 提子消失動畫
+    function animateCaptureFade(mesh) {
+      const start = performance.now();
+      const startY = mesh.position.y;
+      function step(now) {
+        const p = Math.min((now - start) / 280, 1.0);
+        mesh.position.y = startY + Math.sin(p * Math.PI / 2) * 0.7;
+        mesh.scale.setScalar(1.0 - p);
+        if (p < 1.0) {
+          requestAnimationFrame(step);
+        } else {
+          removeAndDispose(mesh, scene);
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+
+    /* ==========================================================================
+       T17 終局標記死子：雙方虛手後，點選棋塊切換死活，確認後把死子提掉再計分
+       ========================================================================== */
+    let isMarkingDead = false;
+    let deadStones = new Set(); // "r,c"
+
+    // 建議的死子：只剩 1 口氣的棋塊；或 2 口氣以內、6 子以下、被對方完全包在小空間裡的棋塊
+    function suggestDeadStones() {
+      const visited = new Set();
+      const result = new Set();
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          const color = board[r][c];
+          if (color === EMPTY || visited.has(`${r},${c}`)) continue;
+          const { group, liberties } = getGroupAndLiberties(board, r, c);
+          group.forEach(pt => visited.add(`${pt.r},${pt.c}`));
+          const opp = (color === BLACK ? WHITE : BLACK);
+          const inGroup = (pr, pc) => group.some(g => g.r === pr && g.c === pc);
+
+          let dead = liberties.size <= 1;
+          if (!dead && liberties.size <= 2 && group.length <= 6) {
+            dead = [...liberties].every(key => {
+              const [lr, lc] = key.split(',').map(Number);
+              return getNeighbors(lr, lc).every(n =>
+                board[n.r][n.c] === opp || inGroup(n.r, n.c) || liberties.has(`${n.r},${n.c}`));
+            });
+          }
+          if (dead) group.forEach(pt => result.add(`${pt.r},${pt.c}`));
+        }
+      }
+      return result;
+    }
+
+    function setStoneDeadLook(r, c, dead) {
+      const mesh = stoneMeshes[r][c];
+      if (!mesh || !mesh.material) return;
+      mesh.material.transparent = dead;
+      mesh.material.opacity = dead ? 0.3 : 1.0;
+      mesh.material.needsUpdate = true;
+    }
+
+    // 預覽：把目前標記的死子提掉之後的點數
+    function updateDeadMarkPreview() {
+      const preview = board.map(row => [...row]);
+      deadStones.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        preview[r][c] = EMPTY;
+      });
+      const sc = computeAreaScores(preview);
+      const diff = sc.black - sc.white;
+      document.getElementById('status-pill').innerText =
+        `☠️ 標記死子中：已標 ${deadStones.size} 子 ・ 預估 黑 ${sc.black} 點 / 白 ${sc.white} 點（${diff > 0 ? '黑' : '白'}領先 ${Math.abs(diff).toFixed(1)}）`;
+    }
+
+    function startDeadStoneMarking() {
+      isMarkingDead = true;
+      isAIThinking = false;
+      deadStones = suggestDeadStones();
+      deadStones.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        setStoneDeadLook(r, c, true);
+      });
+
+      clearLibertiesMarkers();
+      resetDecisiveTargetStones();
+      hoverIndicatorMesh.material.opacity = 0;
+      ['mercy-banner', 'decisive-banner', 'atari-banner'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+      });
+      document.getElementById('dead-mark-banner').style.display = 'flex';
+
+      playSound('clack');
+      showToast('雙方都虛手了！半透明的是阿喵建議的死子，點棋子可以切換');
+      updateDeadMarkPreview();
+    }
+
+    function toggleDeadGroup(r, c) {
+      if (board[r][c] === EMPTY) return;
+      const { group } = getGroupAndLiberties(board, r, c);
+      const makeDead = !deadStones.has(`${r},${c}`);
+      group.forEach(pt => {
+        const key = `${pt.r},${pt.c}`;
+        if (makeDead) deadStones.add(key);
+        else deadStones.delete(key);
+        setStoneDeadLook(pt.r, pt.c, makeDead);
+      });
+      playSound('clack');
+      updateDeadMarkPreview();
+    }
+
+    function hideDeadMarkBanner() {
+      document.getElementById('dead-mark-banner').style.display = 'none';
+    }
+
+    function confirmDeadStones() {
+      if (!isMarkingDead) return;
+      isMarkingDead = false;
+      hideDeadMarkBanner();
+
+      // 把死子當作被提走：從盤面移除後再計分
+      deadStones.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        board[r][c] = EMPTY;
+        const mesh = stoneMeshes[r][c];
+        stoneMeshes[r][c] = null;
+        if (mesh) animateCaptureFade(mesh);
+      });
+      deadStones.clear();
+      endGameByScoring();
+    }
+
+    // 還有地方要爭：取消標記，回到對局 (輪到黑方)
+    function resumeFromMarking() {
+      if (!isMarkingDead) return;
+      deadStones.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        setStoneDeadLook(r, c, false);
+      });
+      deadStones.clear();
+      isMarkingDead = false;
+      hideDeadMarkBanner();
+
+      consecutivePasses = 0;
+      currentTurn = BLACK;
+      koPoint = null;
+      updateHUD();
+      checkAndRenderVisualAids();
+      showToast('繼續下棋！把想爭的地方下完，再按兩次「虛手」結算');
+    }
+
+    // 虛手 (Pass)
+    function handlePass() {
+      if (isGameOver || isAIThinking || isMarkingDead) return;
+
+      // 虛手也記入歷史，悔棋時才能正確退回
+      saveHistoryState();
+      consecutivePasses++;
+      playSound('clack');
+      showToast(currentTurn === BLACK ? '⚫ 你選擇了「虛手 (Pass)」！' : '⚪ 阿喵虛手 (Pass)！你也按「虛手」就會結算勝負');
+
+      // 連續兩次虛手：先標記死子，確認後才結算
+      if (consecutivePasses >= 2) {
+        startDeadStoneMarking();
+        return;
+      }
+
+      currentTurn = (currentTurn === BLACK ? WHITE : BLACK);
+      koPoint = null;
+      updateHUD();
+
+      if (currentTurn === WHITE && !isGameOver) {
+        isAIThinking = true;
+        document.getElementById('status-pill').innerText = '🐱 阿喵老師正在思考中...';
+        later(makeAIMove, 500);
+      }
+    }
+
+    /* ==========================================================================
+       6. 友善啟發式 AI 對弈引擎 (Novice / Beginner / Master)
+       ========================================================================== */
+    function makeAIMove() {
+      if (isGameOver) {
+        isAIThinking = false;
+        return;
+      }
+
+      const legalMoves = [];
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          const val = validateMove(board, r, c, WHITE, koPoint);
+          if (val.legal) {
+            legalMoves.push({ r, c, captured: val.capturedStones });
+          }
+        }
+      }
+
+      if (legalMoves.length === 0) {
+        isAIThinking = false;
+        handlePass();
+        return;
+      }
+
+      // 0. AI 智能認輸檢驗：若戰局已一面倒落後超過 18 目，阿喵老師主動推子認輸！
+      const curScores = computeAreaScores(board);
+      const curLead = curScores.black - curScores.white; // 正值代表黑方領先
+      let livingWhiteStones = 0;
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (board[r][c] === WHITE) livingWhiteStones++;
+        }
+      }
+
+      if (curLead >= 18.0 && moveHistory.length >= 8 && (livingWhiteStones <= 6 || curLead >= 25.0)) {
+        isAIThinking = false;
+        endGameByResignation('WHITE_RESIGN', curLead);
+        return;
+      }
+
+      // 0.5 篩選「有意義」的著手：不填自己的眼；提子、救子、叫吃、搶公共點、打入對方大空才算有意義
+      const usefulMoves = [];
+      for (const m of legalMoves) {
+        const nbrs = getNeighbors(m.r, m.c);
+        const isOwnEye = m.captured.length === 0 && nbrs.every(n => board[n.r][n.c] === WHITE);
+        if (isOwnEye) continue;
+
+        if (m.captured.length > 0) { m.tactical = true; usefulMoves.push(m); continue; }
+
+        // 這手之前，相鄰的白棋塊是否正被叫吃 (下這手可能救活)
+        const savesAtari = nbrs.some(n => board[n.r][n.c] === WHITE &&
+          getGroupAndLiberties(board, n.r, n.c).liberties.size === 1);
+
+        board[m.r][m.c] = WHITE; // 虛擬落子
+        const myLibs = getGroupAndLiberties(board, m.r, m.c).liberties.size;
+        const givesAtari = nbrs.some(n => board[n.r][n.c] === BLACK &&
+          getGroupAndLiberties(board, n.r, n.c).liberties.size === 1);
+        board[m.r][m.c] = EMPTY; // 還原
+
+        if (myLibs < 2) continue; // 下了只剩 1 口氣又沒提到子：送死，不算有意義
+
+        const owner = curScores.territoryMap[m.r][m.c];
+        const openBlackArea = (owner === BLACK && curScores.regionSizeMap[m.r][m.c] >= 9);
+        m.tactical = savesAtari || givesAtari; // 提子、救子、叫吃屬於「戰鬥手」
+        if (m.tactical || owner === EMPTY || openBlackArea) usefulMoves.push(m);
+      }
+
+      // 沒有有意義的著手，或玩家已虛手而阿喵領先 → 阿喵也虛手，讓棋局能正常結束
+      // 玩家已虛手 (表示想結束) 時，阿喵只考慮戰鬥手，不再去打入玩家的地盤
+      const playerJustPassed = (consecutivePasses === 1);
+      const pool = playerJustPassed ? usefulMoves.filter(m => m.tactical) : usefulMoves;
+      if (pool.length === 0 || (playerJustPassed && curLead < 0)) {
+        isAIThinking = false;
+        handlePass();
+        return;
+      }
+
+      // 之後只從有意義的著手中挑選
+      legalMoves.length = 0;
+      legalMoves.push(...pool);
+
+      // 幼幼貓模式 (Novice)：60% 隨機，讓初學者有成就感
+      if (aiDifficulty === 'NOVICE' && Math.random() < 0.6) {
+        const randomMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+        isAIThinking = false;
+        attemptMove(randomMove.r, randomMove.c, WHITE);
+        return;
+      }
+
+      // 啟發式評估各候選點權重
+      let bestMove = legalMoves[0];
+      let bestScore = -99999;
+
+      for (const m of legalMoves) {
+        let score = 0;
+
+        // 1. 提子優先 (+60 每顆)
+        if (m.captured.length > 0) {
+          score += m.captured.length * 60;
+        }
+
+        // 虛擬下子測試氣數與安全度
+        board[m.r][m.c] = WHITE;
+        const { liberties: myLibs } = getGroupAndLiberties(board, m.r, m.c);
+
+        // 2. 自投羅網（自己變成只剩 1 口氣）大扣分！
+        if (myLibs.size === 1 && m.captured.length === 0) {
+          score -= 45;
+        } else if (myLibs.size >= 3) {
+          score += 12;
+        }
+
+        // 3. 叫吃對手 (+30)
+        for (const n of getNeighbors(m.r, m.c)) {
+          if (board[n.r][n.c] === BLACK) {
+            const { liberties: oppLibs } = getGroupAndLiberties(board, n.r, n.c);
+            if (oppLibs.size === 1) score += 32;
+          }
+        }
+
+        // 4. 開局搶佔星位與三線、四線金角銀邊
+        const distFromCenter = Math.abs(m.r - 4) + Math.abs(m.c - 4);
+        if (distFromCenter <= 2) score += 10; // 中央或星位
+
+        // 一路（最外邊緣）在開局通常效率低
+        if (m.r === 0 || m.r === 8 || m.c === 0 || m.c === 8) {
+          if (m.captured.length === 0) score -= 8;
+        }
+
+        board[m.r][m.c] = EMPTY; // 還原
+
+        // 加入微量隨機擾動防止棋路死板
+        score += Math.random() * 4;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMove = m;
+        }
+      }
+
+      isAIThinking = false;
+
+      // 若全盤劣勢且評估分極低，AI 也會懂事地選擇 Pass
+      if (bestScore < -30 && Math.random() < 0.4) {
+        handlePass();
+      } else {
+        attemptMove(bestMove.r, bestMove.c, WHITE);
+      }
+    }
+
+    function cycleAIDifficulty() {
+      const modes = ['NOVICE', 'BEGINNER', 'MASTER'];
+      const nextIdx = (modes.indexOf(aiDifficulty) + 1) % modes.length;
+      aiDifficulty = modes[nextIdx];
+
+      const btn = document.getElementById('btn-diff');
+      if (aiDifficulty === 'NOVICE') btn.innerText = '⭐ 幼幼貓';
+      else if (aiDifficulty === 'BEGINNER') btn.innerText = '⭐⭐ 小弈貓';
+      else btn.innerText = '⭐⭐⭐ 圍棋大師';
+
+      showToast(`AI 難度已切換為：【${btn.innerText}】`);
+    }
+
+    /* ==========================================================================
+       7. 新手視覺輔助系統：實時氣數、叫吃紅環、地盤半透明光暈
+       ========================================================================== */
+    function checkAndRenderVisualAids() {
+      clearLibertiesMarkers();
+      renderAtariAlerts();
+      renderDecisiveMarkers();
+      checkMercyRule();
+      if (showTerritoryVisual) {
+        renderTerritoryMarkers();
+      } else {
+        clearTerritoryMarkers();
+      }
+    }
+
+    // 檢查戰局是否已經一面倒 (Mercy Rule / Early Victory)
+    function checkMercyRule() {
+      const banner = document.getElementById('mercy-banner');
+      if (isGameOver) {
+        banner.style.display = 'none';
+        return;
+      }
+
+      const sc = computeAreaScores(board);
+      const lead = sc.black - sc.white;
+
+      // 當黑方領先達到 20 目以上，且盤面已有一定進展時，跳出「大局已定」提前結算快捷按鈕
+      if (lead >= 20.0 && moveHistory.length >= 8) {
+        banner.style.display = 'inline-flex';
+        banner.innerHTML = `<span>🏆 戰局已全面一面倒！黑方遙遙領先 <strong>${lead.toFixed(1)} 點</strong>！</span>
+          <button class="btn-mercy-claim" onclick="claimEarlyVictory()">🏁 提前結算獲勝</button>`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    // 玩家主動點擊「提前結算獲勝」
+    function claimEarlyVictory() {
+      if (isGameOver) return;
+      showToast('大局已定！提前結算獲勝 🏆');
+      endGameByScoring();
+    }
+
+    function toggleLibertiesVisual() {
+      showLibertiesVisual = !showLibertiesVisual;
+      const btn = document.getElementById('btn-liberties');
+      btn.classList.toggle('active', showLibertiesVisual);
+      if (!showLibertiesVisual) clearLibertiesMarkers();
+      showToast(showLibertiesVisual ? '氣數提示：已開啟 💡' : '氣數提示：已隱藏');
+    }
+
+    function toggleTerritoryVisual() {
+      showTerritoryVisual = !showTerritoryVisual;
+      const btn = document.getElementById('btn-territory');
+      btn.classList.toggle('active', showTerritoryVisual);
+      if (showTerritoryVisual) renderTerritoryMarkers();
+      else clearTerritoryMarkers();
+      showToast(showTerritoryVisual ? '地盤估算：已開啟 📊' : '地盤估算：已隱藏');
+    }
+
+        function highlightDecisiveTargetStones(r, c) {
+      resetDecisiveTargetStones();
+      const match = currentDecisiveMoves.find(d => d.r === r && d.c === c);
+      if (match && match.targetStones) {
+        highlightedTargetStones = match.targetStones;
+      }
+    }
+
+    function resetDecisiveTargetStones() {
+      if (highlightedTargetStones.length > 0) {
+        highlightedTargetStones.forEach(pt => {
+          const mesh = stoneMeshes[pt.r][pt.c];
+          if (mesh) mesh.position.y = STONE_Y;
+        });
+        highlightedTargetStones = [];
+      }
+    }
+
+    function clearLibertiesMarkers() {
+      while (libertiesMarkersGroup.children.length > 0) {
+        const obj = libertiesMarkersGroup.children[0];
+        libertiesMarkersGroup.remove(obj);
+        disposeObject3D(obj);
+      }
+    }
+
+    // 懸停時標記氣數綠色小標籤
+    function previewLibertiesOnHover(r, c, color) {
+      clearLibertiesMarkers();
+      if (board[r][c] !== EMPTY) return;
+
+      board[r][c] = color;
+      const { liberties } = getGroupAndLiberties(board, r, c);
+      board[r][c] = EMPTY;
+
+      const markerGeo = new THREE.CircleGeometry(0.18, 16);
+      markerGeo.rotateX(-Math.PI / 2);
+      const markerMat = new THREE.MeshBasicMaterial({
+        color: 0x34d399,
+        transparent: true,
+        opacity: 0.75,
+        depthWrite: false
+      });
+
+      liberties.forEach(key => {
+        const [lr, lc] = key.split(',').map(Number);
+        const w = gridToWorld(lr, lc);
+        const m = new THREE.Mesh(markerGeo, markerMat);
+        m.position.set(w.x, STONE_Y + 0.02, w.z);
+        libertiesMarkersGroup.add(m);
+      });
+    }
+
+    // 叫吃 (Atari) 警報光圈
+    function renderAtariAlerts() {
+      while (atariRingsGroup.children.length > 0) {
+        const obj = atariRingsGroup.children[0];
+        atariRingsGroup.remove(obj);
+        disposeObject3D(obj);
+      }
+
+      const banner = document.getElementById('atari-banner');
+      const atariList = findAtariGroups(board);
+
+      if (atariList.length > 0) {
+        banner.style.display = 'block';
+        playSound('atari');
+
+        const ringGeo = new THREE.RingGeometry(STONE_RADIUS * 0.95, STONE_RADIUS * 1.35, 32);
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xef4444,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.85,
+          depthWrite: false
+        });
+
+        atariList.forEach(item => {
+          item.group.forEach(pt => {
+            const w = gridToWorld(pt.r, pt.c);
+            const m = new THREE.Mesh(ringGeo, ringMat);
+            m.position.set(w.x, STONE_Y + 0.03, w.z);
+            atariRingsGroup.add(m);
+          });
+        });
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    // 領地地盤可視化
+    function renderTerritoryMarkers() {
+      clearTerritoryMarkers();
+      const { territoryMap } = calculateTerritory(board);
+
+      const boxGeo = new THREE.PlaneGeometry(CELL_SIZE * 0.65, CELL_SIZE * 0.65);
+      boxGeo.rotateX(-Math.PI / 2);
+
+      const blackTerrMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false
+      });
+
+      const whiteTerrMat = new THREE.MeshBasicMaterial({
+        color: 0xf59e0b,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false
+      });
+
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (territoryMap[r][c] === BLACK) {
+            const w = gridToWorld(r, c);
+            const m = new THREE.Mesh(boxGeo, blackTerrMat);
+            m.position.set(w.x, STONE_Y + 0.015, w.z);
+            territoryMarkersGroup.add(m);
+          } else if (territoryMap[r][c] === WHITE) {
+            const w = gridToWorld(r, c);
+            const m = new THREE.Mesh(boxGeo, whiteTerrMat);
+            m.position.set(w.x, STONE_Y + 0.015, w.z);
+            territoryMarkersGroup.add(m);
+          }
+        }
+      }
+    }
+
+    function clearTerritoryMarkers() {
+      while (territoryMarkersGroup.children.length > 0) {
+        const obj = territoryMarkersGroup.children[0];
+        territoryMarkersGroup.remove(obj);
+        disposeObject3D(obj);
+      }
+    }
+
+    /* ==========================================================================
+       8. 終局計算勝負系統 (雙方連續 Pass 終局)
+       ========================================================================== */
+    
+    /* ==========================================================================
+       8.5 認輸與提前勝負裁決系統
+       ========================================================================== */
+    function openResignModal() {
+      if (isGameOver || isAIThinking || isMarkingDead) return;
+      document.getElementById('resign-modal').style.display = 'flex';
+    }
+
+    function closeResignModal(e) {
+      document.getElementById('resign-modal').style.display = 'none';
+    }
+
+    function confirmPlayerResign() {
+      closeResignModal();
+      endGameByResignation('BLACK_RESIGN');
+    }
+
+    // 認輸結算裁決
+    function endGameByResignation(type, leadScore = 0) {
+      isGameOver = true;
+      document.getElementById('mercy-banner').style.display = 'none';
+      document.getElementById('decisive-banner').style.display = 'none';
+
+      const titleEl = document.getElementById('gameover-title');
+      const winnerMsgEl = document.getElementById('gameover-winner-msg');
+      const iconEl = document.getElementById('gameover-winner-icon');
+      const detailEl = document.getElementById('gameover-detail-msg');
+
+      const sc = computeAreaScores(board);
+
+      document.getElementById('final-black-score').innerText = `${sc.black} 點 (${sc.blackStones}子 + ${sc.blackTerritory}空)`;
+      document.getElementById('final-white-score').innerText = `${sc.white} 點 (${sc.whiteStones}子 + ${sc.whiteTerritory}空 + 5.5貼)`;
+
+      if (type === 'WHITE_RESIGN') {
+        playSound('win');
+        titleEl.innerText = '🎉 大局已定！阿喵老師推子認輸！';
+        iconEl.innerText = '🏆';
+        winnerMsgEl.innerText = `黑方以壓倒性優勢中盤勝 (領先 ${leadScore.toFixed(1)} 點)！`;
+        detailEl.innerText = '阿喵老師：「喵嗚～大勢已去！整片棋盤都被你牢牢圍下，阿喵甘拜下風，你這局下得太精彩了！🐾」';
+      } else {
+        playSound('clack');
+        titleEl.innerText = '🐾 棋局結束！黑方認輸';
+        iconEl.innerText = '🤝';
+        winnerMsgEl.innerText = '白方中盤勝出！';
+        detailEl.innerText = '阿喵老師：「勝敗乃兵家常事！下圍棋從每一盤吸取經驗最重要，稍微休息一下，我們再來下一局！🐱」';
+      }
+
+      document.getElementById('gameover-modal').style.display = 'flex';
+      renderTerritoryMarkers();
+    }
+
+    function endGameByScoring() {
+      isGameOver = true;
+      playSound('win');
+
+      // 子空皆地：黑方 = 盤上黑子 + 黑空；白方 = 盤上白子 + 白空 + 貼 5.5
+      const sc = computeAreaScores(board);
+      const diff = sc.black - sc.white;
+
+      const titleEl = document.getElementById('gameover-title');
+      const winnerMsgEl = document.getElementById('gameover-winner-msg');
+      const iconEl = document.getElementById('gameover-winner-icon');
+      const detailEl = document.getElementById('gameover-detail-msg');
+
+      document.getElementById('final-black-score').innerText = `${sc.black} 點 (${sc.blackStones}子 + ${sc.blackTerritory}空)`;
+      document.getElementById('final-white-score').innerText = `${sc.white} 點 (${sc.whiteStones}子 + ${sc.whiteTerritory}空 + 5.5貼)`;
+
+      if (diff > 0) {
+        titleEl.innerText = '🎉 旗開得勝！你贏了！';
+        iconEl.innerText = '🏆';
+        winnerMsgEl.innerText = `黑方以 ${diff.toFixed(1)} 點勝出！`;
+        detailEl.innerText = '太厲害了！你成功圍築出更廣闊的地盤並擒獲了對手棋子，棋藝進步神速！';
+      } else {
+        titleEl.innerText = '🐱 阿喵老師獲勝！再接再厲！';
+        iconEl.innerText = '🐾';
+        winnerMsgEl.innerText = `白方以 ${Math.abs(diff).toFixed(1)} 點勝出！`;
+        detailEl.innerText = '阿喵老師佔據了精妙的金角銀邊！下一次多注意自己的氣，就能反敗為勝喔！';
+      }
+
+      document.getElementById('gameover-modal').style.display = 'flex';
+      renderTerritoryMarkers(); // 結算時強制開啟地盤標註便於學生查看
+    }
+
+    function closeGameOverAndRestart() {
+      document.getElementById('gameover-modal').style.display = 'none';
+      resetGame();
+    }
+
+    /* ==========================================================================
+       9. 悔棋與遊戲重開
+       ========================================================================== */
+    function saveHistoryState() {
+      // 深度拷貝當前盤面與數據
+      const boardCopy = board.map(row => [...row]);
+      moveHistory.push({
+        board: boardCopy,
+        currentTurn,
+        blackCaptures,
+        whiteCaptures,
+        koPoint: koPoint ? { ...koPoint } : null,
+        consecutivePasses
+      });
+      // 9×9 一局最多約百餘手，整局保留即可，悔棋才不會在中途斷掉
+    }
+
+    function undoMove() {
+      if (isGameOver || isAIThinking || isMarkingDead || moveHistory.length === 0) return;
+
+      // 一路往回退，直到回到「輪到黑方（玩家）」的那一刻
+      // (中間可能夾著阿喵的落子或虛手；每筆紀錄都是該手之前的狀態)
+      let restoredState = null;
+      while (moveHistory.length > 0) {
+        const item = moveHistory.pop();
+        if (item.currentTurn === BLACK) {
+          restoredState = item;
+          break;
+        }
+      }
+
+      if (!restoredState) return;
+
+      // 還原數據
+      board = restoredState.board.map(row => [...row]);
+      currentTurn = restoredState.currentTurn;
+      blackCaptures = restoredState.blackCaptures;
+      whiteCaptures = restoredState.whiteCaptures;
+      koPoint = restoredState.koPoint;
+      consecutivePasses = restoredState.consecutivePasses;
+
+      // 重建 3D 棋子 Meshes
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (stoneMeshes[r][c]) {
+            removeAndDispose(stoneMeshes[r][c], scene);
+            stoneMeshes[r][c] = null;
+          }
+          if (board[r][c] !== EMPTY) {
+            const mesh = createStone3DMesh(board[r][c]);
+            const w = gridToWorld(r, c);
+            mesh.position.set(w.x, STONE_Y, w.z);
+            scene.add(mesh);
+            stoneMeshes[r][c] = mesh;
+          }
+        }
+      }
+
+      playSound('clack');
+      showToast('已回到上一步 🐾');
+      updateHUD();
+      checkAndRenderVisualAids();
+    }
+
+    function resetGame() {
+      gameEpoch++;
+      isMarkingDead = false;
+      deadStones.clear();
+      hideDeadMarkBanner();
+      // 清空全場 3D 棋子
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (stoneMeshes[r][c]) {
+            removeAndDispose(stoneMeshes[r][c], scene);
+            stoneMeshes[r][c] = null;
+          }
+        }
+      }
+
+      board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(EMPTY));
+      currentTurn = BLACK;
+      isGameOver = false;
+      isAIThinking = false;
+      consecutivePasses = 0;
+      blackCaptures = 0;
+      whiteCaptures = 0;
+      koPoint = null;
+      moveHistory = [];
+
+      clearLibertiesMarkers();
+      clearTerritoryMarkers();
+      document.getElementById('atari-banner').style.display = 'none';
+
+      updateHUD();
+      checkAndRenderVisualAids(); // 清掉上一局殘留的叫吃紅圈、絕殺光環與提前結算橫幅
+      showToast('新棋局已開打！黑棋請落子 🐾');
+    }
+
+    function resetCamera() {
+      controls.reset();
+      camera.position.set(0, 14.5, 11.5);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+
+    /* ==========================================================================
+       10. UI 更新與彈窗輔助
+       ========================================================================== */
+    function updateHUD() {
+      // 提子數
+      document.getElementById('caps-black').innerText = `${blackCaptures} 子`;
+      document.getElementById('caps-white').innerText = `${whiteCaptures} 子`;
+
+      // 實時估算目數
+      const sc = computeAreaScores(board);
+
+      document.getElementById('score-black').innerText = `${sc.black} 點 (${sc.blackStones}子+${sc.blackTerritory}空)`;
+      document.getElementById('score-white').innerText = `${sc.white} 點 (${sc.whiteStones}子+${sc.whiteTerritory}空+貼5.5)`;
+
+      // 回合指示燈
+      const tBlack = document.getElementById('turn-black');
+      const tWhite = document.getElementById('turn-white');
+
+      if (currentTurn === BLACK) {
+        tBlack.innerText = '輪到你落子';
+        tBlack.className = 'turn-indicator active';
+        tWhite.innerText = '等待中';
+        tWhite.className = 'turn-indicator';
+        document.getElementById('status-pill').innerText = '🐾 輪到黑方（你）落子！請點擊交叉點';
+      } else {
+        tBlack.innerText = '等待中';
+        tBlack.className = 'turn-indicator';
+        tWhite.innerText = '思考中...';
+        tWhite.className = 'turn-indicator active';
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast-pill');
+      toast.innerText = msg;
+      toast.classList.add('visible');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => {
+        toast.classList.remove('visible');
+      }, 2200);
+    }
+
+    function openRulesModal() {
+      document.getElementById('rules-modal').style.display = 'flex';
+    }
+
+    function closeRulesModal(e) {
+      document.getElementById('rules-modal').style.display = 'none';
+    }
+
+    // 依頂部按鈕列的實際高度擺放左右資訊卡，避免窄版面時按鈕換行後被資訊卡蓋住
+    function layoutHud() {
+      const bar = document.querySelector('.top-bar');
+      if (!bar) return;
+      const top = Math.round(bar.getBoundingClientRect().bottom + 8);
+      document.documentElement.style.setProperty('--hud-top', top + 'px');
+    }
+
+    function onWindowResize() {
+      layoutHud();
+      const container = document.getElementById('canvas-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    /* ==========================================================================
+       11. 動畫渲染迴圈 (Render Animation Loop)
+       ========================================================================== */
+    function animate() {
+      // 有變化才重繪 (見 common.js)；叫吃紅圈、絕殺光環與共鳴棋子有呼吸效果
+      startRenderLoop({
+        renderer, scene, camera, controls,
+        hasIdleEffects: () =>
+          !!(atariRingsGroup && atariRingsGroup.children.length > 0) ||
+          !!(decisiveMarkersGroup && decisiveMarkersGroup.children.length > 0) ||
+          highlightedTargetStones.length > 0,
+        onFrame: animateEffects
+      });
+    }
+
+    function animateEffects() {
+      // 叫吃紅色光環旋轉呼吸
+      if (atariRingsGroup && atariRingsGroup.children.length > 0) {
+        const time = performance.now() * 0.005;
+        const scale = 1.0 + Math.sin(time) * 0.08;
+        atariRingsGroup.children.forEach(ring => {
+          ring.scale.set(scale, scale, 1);
+        });
+      }
+
+            // 絕殺光環脈衝旋轉
+      if (decisiveMarkersGroup && decisiveMarkersGroup.children.length > 0) {
+        const time = performance.now() * 0.006;
+        const scale = 1.0 + Math.sin(time) * 0.12;
+        decisiveMarkersGroup.children.forEach(c => {
+          if (c.userData && c.userData.isDecisiveRing) {
+            c.scale.set(scale, scale, 1);
+          }
+        });
+      }
+
+      // 絕殺目標棋子懸浮共鳴
+      if (highlightedTargetStones.length > 0) {
+        const time = performance.now() * 0.008;
+        highlightedTargetStones.forEach(pt => {
+          const mesh = stoneMeshes[pt.r][pt.c];
+          if (mesh) {
+            mesh.position.y = STONE_Y + 0.12 + Math.sin(time) * 0.05;
+          }
+        });
+      }
+    }
+
+    // 啟動全遊戲
+    window.addEventListener('DOMContentLoaded', () => {
+      // T04：檢查 THREE 與 WebGL 是否可用
+      (function checkEnv() {
+        const screen = document.getElementById('load-screen');
+        const msg = document.getElementById('load-msg');
+        if (typeof THREE === 'undefined' || typeof startRenderLoop === 'undefined') {
+          msg.textContent = '😿 遊戲無法載入，請重新整理頁面或告訴老師';
+          return;
+        }
+        const c = document.createElement('canvas');
+        if (!c.getContext('webgl') && !c.getContext('experimental-webgl')) {
+          msg.textContent = '😿 這台電腦不支援 3D 顯示，請告訴老師';
+          return;
+        }
+        screen.style.display = 'none';
+      })();
+      initThreeScene();
+      updateHUD();
+      layoutHud();
+      animate();
+    });
+  </script>
+</body>
+</html>
