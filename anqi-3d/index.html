@@ -416,10 +416,13 @@
 
     /* 浮動提示訊息 (Toast) */
     #toast-box {
+      /* 放在上方按鈕列下面、兩張資訊卡之間，不要擋住棋盤 */
       position: absolute;
-      top: 50%;
+      top: calc(var(--hud-top, 68px) + 6px);
       left: 50%;
-      transform: translate(-50%, -50%);
+      transform: translate(-50%, 0);
+      max-width: min(92vw, 560px);
+      text-align: center;
       background: rgba(15, 23, 42, 0.95);
       border: 1px solid #f59e0b;
       color: #fef08a;
@@ -435,8 +438,8 @@
     }
 
     @keyframes toastPop {
-      0% { opacity: 0; transform: translate(-50%, -40%) scale(0.9); }
-      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      0% { opacity: 0; transform: translate(-50%, -10px) scale(0.9); }
+      100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
     }
 
     /* 模態彈窗 (Rules & Victory Modals) */
