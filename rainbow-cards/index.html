@@ -1,0 +1,2343 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>阿喵彩虹牌 - 阿喵老師的遊戲教室</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       CSS 變數與通用設定
+       ========================================================================== */
+    :root {
+      --card-w: 92px;
+      --card-h: calc(var(--card-w) * 1.4);
+      --card-radius: calc(var(--card-w) * 0.12);
+      --bg-dark: #081d11;
+      --felt-green: #15542b;
+      --felt-border: #0c331a;
+      --gold-accent: #f59e0b;
+      --gold-hover: #d97706;
+      --text-white: #f8fafc;
+      --text-muted: #94a3b8;
+      --panel-bg: rgba(15, 23, 42, 0.85);
+      --font-main: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font-main);
+      background: radial-gradient(circle at 50% 30%, #133e21 0%, #081d11 100%);
+      color: var(--text-white);
+    }
+
+    /* 應用程式主容器 (全螢幕，無捲軸) */
+    .app-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ==========================================================================
+       頂部控制工具列 (每顆按鈕/控制項最小高度 44px)
+       ========================================================================== */
+    .header-bar {
+      height: 56px;
+      min-height: 56px;
+      background: rgba(8, 29, 17, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 100;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fed7aa;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      white-space: nowrap;
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ctrl-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      height: 44px;
+    }
+
+    .ctrl-select {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 0 10px;
+      border-radius: 8px;
+      height: 44px;
+      min-height: 44px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .ctrl-select:hover, .ctrl-select:focus {
+      border-color: var(--gold-accent);
+      background: rgba(45, 62, 88, 0.9);
+    }
+
+    .ctrl-checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 44px;
+      min-height: 44px;
+      padding: 0 10px;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .ctrl-checkbox-label:hover {
+      background: rgba(45, 62, 88, 0.8);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .ctrl-checkbox-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--gold-accent);
+      cursor: pointer;
+    }
+
+    .ctrl-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 44px;
+      min-height: 44px;
+      padding: 0 14px;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #f8fafc;
+      font-size: 0.85rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .ctrl-btn:hover {
+      background: rgba(51, 65, 85, 0.95);
+      border-color: rgba(255, 255, 255, 0.35);
+      transform: translateY(-1px);
+    }
+    .ctrl-btn:active {
+      transform: translateY(1px);
+    }
+    .ctrl-btn.primary {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      border: none;
+      color: #1e293b;
+      font-weight: 700;
+      box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+    }
+    .ctrl-btn.primary:hover {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+    }
+
+    /* ==========================================================================
+       牌桌 2.5D 透視場景
+       ========================================================================== */
+    .table-container {
+      flex: 1;
+      width: 100%;
+      position: relative;
+      perspective: 1200px;
+      perspective-origin: center 40%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .table-felt {
+      position: absolute;
+      width: 92%;
+      max-width: 1100px;
+      height: 82%;
+      transform: rotateX(18deg);
+      transform-origin: center 55%;
+      background: radial-gradient(ellipse at 50% 50%, #1a6333 0%, #114522 60%, #0c331a 100%);
+      border: 10px solid #23180d;
+      outline: 3px solid #d4af37;
+      border-radius: 90px;
+      box-shadow:
+        inset 0 0 60px rgba(0, 0, 0, 0.7),
+        0 18px 45px rgba(0, 0, 0, 0.65);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 24px;
+      pointer-events: auto;
+    }
+
+    /* ==========================================================================
+       電腦對手區域 (左、上、右)
+       ========================================================================== */
+    .opponents-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .opponent-slot {
+      position: absolute;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s ease;
+      z-index: 10;
+    }
+
+    .opponent-top {
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .opponent-left {
+      left: 20px;
+      top: 40%;
+      transform: translateY(-50%);
+    }
+
+    .opponent-right {
+      right: 20px;
+      top: 40%;
+      transform: translateY(-50%);
+    }
+
+    .avatar-wrapper {
+      position: relative;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      border: 3px solid #64748b;
+      transition: all 0.3s ease;
+    }
+
+    .opponent-slot.active-turn .avatar-wrapper {
+      border-color: #fbbf24;
+      box-shadow: 0 0 20px #fbbf24, 0 0 35px rgba(251, 191, 36, 0.6);
+      transform: scale(1.08);
+      animation: pulse-turn 1.4s infinite alternate ease-in-out;
+    }
+
+    @keyframes pulse-turn {
+      0% { box-shadow: 0 0 14px #fbbf24; }
+      100% { box-shadow: 0 0 26px #f59e0b, 0 0 40px rgba(245, 158, 11, 0.8); }
+    }
+
+    .avatar-badge {
+      position: absolute;
+      bottom: -6px;
+      right: -6px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      border: 1px solid #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .opponent-info {
+      text-align: center;
+      background: rgba(15, 23, 42, 0.75);
+      padding: 3px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .opponent-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .opponent-cards-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 4px;
+      height: 28px;
+    }
+
+    .mini-card-back {
+      width: 18px;
+      height: 26px;
+      background: #2b3a67;
+      border: 1px solid #e2e8f0;
+      border-radius: 3px;
+      margin-left: -10px;
+      box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #fff;
+    }
+    .mini-card-back:first-child {
+      margin-left: 0;
+    }
+
+    .sleep-bubble {
+      position: absolute;
+      top: -12px;
+      right: -12px;
+      font-size: 22px;
+      animation: float-sleep 2s infinite ease-in-out;
+      display: none;
+    }
+    @keyframes float-sleep {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-6px) rotate(10deg); }
+    }
+
+    /* ==========================================================================
+       桌面中央區 (抽牌堆、棄牌堆、家族標籤、方向箭頭)
+       ========================================================================== */
+    .table-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      z-index: 5;
+    }
+
+    /* 抽牌堆立體疊層 */
+    .pile-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .draw-pile {
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: var(--card-radius);
+      background: #2b3a67;
+      border: 2px solid #e2e8f0;
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow:
+        2px 2px 0 #1b2647,
+        4px 4px 0 #151e38,
+        6px 6px 0 #0f1629,
+        8px 8px 14px rgba(0, 0, 0, 0.6);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .draw-pile:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow:
+        2px 4px 0 #1b2647,
+        4px 6px 0 #151e38,
+        6px 8px 0 #0f1629,
+        8px 12px 18px rgba(0, 0, 0, 0.7);
+    }
+    .draw-pile:active {
+      transform: translateY(1px);
+    }
+
+    .draw-pile-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .draw-pile-paw {
+      font-size: 32px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+    }
+    .draw-pile-rainbow-arc {
+      width: 44px;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #f28c28 0%, #3fae5a 33%, #5f7189 66%, #f48fb1 100%);
+    }
+
+    .pile-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      background: rgba(15, 23, 42, 0.7);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* 棄牌堆 */
+    .discard-pile {
+      width: var(--card-w);
+      height: var(--card-h);
+      position: relative;
+      border-radius: var(--card-radius);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .discard-placeholder {
+      width: 100%;
+      height: 100%;
+      border-radius: var(--card-radius);
+      border: 2px dashed rgba(255, 255, 255, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* 目前家族指示器與方向箭頭 */
+    .center-indicators {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .family-indicator {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: #f28c28;
+      border: 3px solid #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: #1e293b;
+      font-weight: 700;
+      transition: all 0.3s ease;
+    }
+    .family-indicator-name {
+      font-size: 0.62rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .direction-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(30, 41, 59, 0.85);
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #fbbf24;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      transition: transform 0.5s ease;
+    }
+    .direction-badge.reverse {
+      transform: scaleX(-1);
+    }
+
+    /* ==========================================================================
+       狀態列 (Status Bar)
+       ========================================================================== */
+    .status-bar-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding: 0 16px;
+      position: relative;
+      z-index: 30;
+      margin-bottom: 4px;
+    }
+
+    .status-bar {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 6px 20px;
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: #f8fafc;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 800px;
+      text-align: center;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+      animation: pulse-dot 1.5s infinite ease-in-out;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* ==========================================================================
+       學生手牌區 (保持 2D 平面，不傾斜，好讀好點)
+       ========================================================================== */
+    .player-section {
+      width: 100%;
+      height: 184px;
+      min-height: 184px;
+      position: relative;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 20px 8px 20px;
+      background: linear-gradient(to top, rgba(8, 29, 17, 0.95) 0%, rgba(8, 29, 17, 0.4) 75%, transparent 100%);
+    }
+
+    .hand-wrapper {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;   /* 置中交給 .hand-cards 的 margin:auto，牌多時左邊才捲得到 */
+      position: relative;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-top: 26px;
+      padding-bottom: 22px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(245, 158, 11, 0.4) transparent;
+    }
+    .hand-wrapper::-webkit-scrollbar {
+      height: 6px;
+    }
+    .hand-wrapper::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.4);
+      border-radius: 3px;
+    }
+
+    /* 手牌容器 (支援扇形與平鋪捲動) */
+    .hand-cards {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      height: 100%;
+      min-width: min-content;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    /* 喊「喵！」時冒在玩家頭上的對話泡泡 */
+    .meow-bubble {
+      position: fixed;
+      z-index: 3600;
+      transform: translate(-50%, -100%);
+      background: #fff;
+      color: #b91c1c;
+      font-weight: 900;
+      font-size: 1.15rem;
+      padding: 6px 14px;
+      border-radius: 18px;
+      border: 3px solid #f59e0b;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+      pointer-events: none;
+      animation: meowPop 1.3s ease forwards;
+    }
+    @keyframes meowPop {
+      0% { opacity: 0; transform: translate(-50%, -60%) scale(0.5); }
+      20% { opacity: 1; transform: translate(-50%, -110%) scale(1.15); }
+      80% { opacity: 1; transform: translate(-50%, -110%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -140%) scale(1); }
+    }
+
+    /* 「喵！」大圓按鈕 */
+    .meow-container {
+      width: 90px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-left: 16px;
+    }
+
+    .btn-meow {
+      width: 74px;
+      height: 74px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ef4444, #b91c1c);
+      border: 3px solid #fecaca;
+      color: #fff;
+      font-size: 1.15rem;
+      font-weight: 900;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 16px rgba(239, 68, 68, 0.5);
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      outline: none;
+    }
+    .btn-meow:hover:not(:disabled) {
+      transform: scale(1.08);
+      box-shadow: 0 8px 22px rgba(239, 68, 68, 0.7);
+    }
+    .btn-meow:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+    .btn-meow:disabled {
+      background: #475569;
+      border-color: #64748b;
+      color: #94a3b8;
+      box-shadow: none;
+      cursor: not-allowed;
+      filter: grayscale(80%);
+    }
+    .btn-meow.bounce {
+      animation: meow-bounce 0.8s infinite alternate ease-in-out;
+    }
+    @keyframes meow-bounce {
+      0% { transform: scale(1); box-shadow: 0 0 10px #ef4444; }
+      100% { transform: scale(1.14); box-shadow: 0 0 24px #f87171, 0 0 35px rgba(239, 68, 68, 0.8); }
+    }
+
+    /* ==========================================================================
+       卡牌通用 CSS 結構 (R2 牌面與牌背版型規格)
+       ========================================================================== */
+    .card-view {
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: var(--card-radius);
+      position: relative;
+      perspective: 800px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.25s, box-shadow 0.25s;
+    }
+
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: var(--card-radius);
+    }
+    .card-inner.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: var(--card-radius);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      border-width: 5px;
+      border-style: solid;
+      box-sizing: border-box;
+    }
+
+    /* 牌面底紋層 */
+    .card-pattern-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.12;
+      z-index: 1;
+    }
+    .pattern-dots {
+      background-image: radial-gradient(circle, currentColor 2px, transparent 2px);
+      background-size: 10px 10px;
+    }
+    .pattern-leaves {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%2323763a' d='M8 1c4 0 7 3 7 7s-3 7-7 7C8 11 5 8 5 8s3-3 3-7z'/%3E%3C/svg%3E");
+      background-size: 14px 14px;
+    }
+    .pattern-stars {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpolygon fill='%235f7189' points='8,1 10,6 15,6 11,9 13,14 8,11 3,14 5,9 1,6 6,6'/%3E%3C/svg%3E");
+      background-size: 14px 14px;
+    }
+    .pattern-hearts {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23c2507a' d='M8 14s-6-3.5-6-7.5A3.5 3.5 0 0 1 8 3.5 3.5 3.5 0 0 1 14 6.5C14 10.5 8 14 8 14z'/%3E%3C/svg%3E");
+      background-size: 14px 14px;
+    }
+
+    /* 牌面角標 (左上與右下) */
+    .card-corner {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .corner-tl {
+      top: 4px;
+      left: 4px;
+    }
+    .corner-br {
+      bottom: 4px;
+      right: 4px;
+      transform: rotate(180deg);
+    }
+
+    .corner-val {
+      font-size: calc(var(--card-w) * 0.18);
+      font-weight: 900;
+    }
+    .corner-emoji {
+      font-size: calc(var(--card-w) * 0.16);
+      margin-top: 1px;
+    }
+
+    /* 6 與 9 底線 */
+    .num-underlined {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-thickness: 2.5px;
+    }
+    .num-underlined-center {
+      position: relative;
+      display: inline-block;
+    }
+    .num-underlined-center::after {
+      content: '';
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: -3px;
+      height: calc(var(--card-h) * 0.038);
+      background: currentColor;
+      border-radius: 3px;
+    }
+
+    /* 牌面中央主體 */
+    .card-center-body {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* 中央大數字 (字高約牌高 45%) */
+    .card-big-num {
+      font-size: calc(var(--card-h) * 0.45);
+      line-height: 1;
+      font-weight: 900;
+      font-family: inherit;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+    }
+
+    /* 功能牌中央區 */
+    .card-action-icon {
+      font-size: calc(var(--card-h) * 0.28);
+      line-height: 1;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    }
+    .card-action-sub {
+      font-size: calc(var(--card-w) * 0.18);
+      font-weight: 900;
+      line-height: 1;
+      margin-top: 2px;
+    }
+    .card-action-name {
+      font-size: calc(var(--card-w) * 0.14);
+      font-weight: 700;
+      margin-top: 3px;
+      white-space: nowrap;
+    }
+
+    /* 彩虹牌與彩虹風暴四角小圓點 */
+    .rainbow-dot {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      z-index: 3;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+    .dot-tl { top: 5px; left: 5px; background: #f28c28; }
+    .dot-tr { top: 5px; right: 5px; background: #3fae5a; }
+    .dot-bl { bottom: 5px; left: 5px; background: #eef2f7; border: 1px solid #94a3b8; }
+    .dot-br { bottom: 5px; right: 5px; background: #f48fb1; }
+
+    /* 牌背 */
+    .card-back {
+      background: #2b3a67;
+      border: 3px solid #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transform: rotateY(180deg);
+      position: relative;
+    }
+    .card-back-arc {
+      position: absolute;
+      top: 14px;
+      width: 60%;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #f28c28 0%, #3fae5a 33%, #eef2f7 66%, #f48fb1 100%);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .card-back-paw {
+      font-size: calc(var(--card-w) * 0.4);
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    }
+
+    /* 手牌狀態浮動與邊框 */
+    .card-view.playable {
+      transform: translateY(-14px);
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.95), 0 8px 18px rgba(0, 0, 0, 0.4);
+      filter: brightness(105%);
+      z-index: 20;
+    }
+    .card-view.unplayable {
+      filter: brightness(60%);
+      cursor: not-allowed;
+    }
+
+    /* ==========================================================================
+       全牌組預覽模式 (?preview=1)
+       ========================================================================== */
+    .preview-modal {
+      position: fixed;
+      inset: 0;
+      background: #0b1e13;
+      z-index: 5000;
+      overflow-y: auto;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .preview-header {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+      padding-bottom: 12px;
+    }
+    .preview-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fed7aa;
+    }
+    .preview-section {
+      width: 100%;
+      max-width: 1100px;
+      background: rgba(15, 23, 42, 0.7);
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .preview-section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    /* ==========================================================================
+       自製遊戲內對話框 (Dialog Overlay，不要用 alert/confirm/prompt)
+       ========================================================================== */
+    .dialog-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      padding: 16px;
+    }
+    .dialog-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .dialog-box {
+      background: #1e293b;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      transform: scale(0.92);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      overflow: hidden;
+    }
+    .dialog-overlay.show .dialog-box {
+      transform: scale(1);
+    }
+
+    .dialog-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .dialog-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fed7aa;
+    }
+
+    .dialog-body {
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #e2e8f0;
+    }
+
+    .dialog-buttons {
+      padding: 14px 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    /* ==========================================================================
+       Toast 浮動訊息通知
+       ========================================================================== */
+    .toast-container {
+      position: fixed;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2000;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast-box {
+      background: rgba(15, 23, 42, 0.92);
+      color: #fff;
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      border-radius: 24px;
+      padding: 8px 22px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+    .toast-box.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ==========================================================================
+       響應式設計 (RWD: 1024x768 主力，<700px 窄螢幕收納)
+       ========================================================================== */
+    @media (max-width: 700px) {
+      :root {
+        --card-w: 64px;
+      }
+      .brand-title {
+        font-size: 0.95rem;
+      }
+      .header-bar {
+        padding: 0 8px;
+        height: 50px;
+        min-height: 50px;
+      }
+      .ctrl-btn, .ctrl-select, .ctrl-checkbox-label {
+        height: 38px;
+        min-height: 38px;
+        padding: 0 8px;
+        font-size: 0.78rem;
+      }
+      .table-felt {
+        width: 96%;
+        height: 86%;
+        border-radius: 40px;
+        padding: 10px 12px;
+      }
+      /* 窄螢幕：左右對手移到上方兩角，牌堆往下移，才不會互相蓋住 */
+      .opponent-left {
+        left: 8px;
+        top: 16%;
+      }
+      .opponent-right {
+        right: 8px;
+        top: 16%;
+      }
+      .table-center {
+        top: 60%;
+        gap: 12px;
+      }
+      .toast-container {
+        top: 128px;
+        width: 92vw;
+      }
+      .opponent-cards-row {
+        display: none; /* 窄螢幕時左右對手只顯示頭像與張數 */
+      }
+      .avatar-wrapper {
+        width: 46px;
+        height: 46px;
+        font-size: 22px;
+      }
+      .player-section {
+        height: 142px;
+        min-height: 142px;
+        padding: 0 6px 4px 6px;
+      }
+      .hand-wrapper {
+        padding-top: 22px;
+        padding-bottom: 16px;
+      }
+      .meow-container {
+        width: 62px;
+        margin-left: 6px;
+      }
+      .header-bar {
+        height: auto;
+        min-height: 50px;
+        flex-wrap: wrap;
+        row-gap: 4px;
+        padding: 4px 8px;
+      }
+      .controls-group {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 4px;
+      }
+      .status-bar {
+        font-size: 0.78rem;
+        max-width: 96vw;
+      }
+      .btn-meow {
+        width: 58px;
+        height: 58px;
+        font-size: 0.95rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 應用程式容器 -->
+  <div class="app-container">
+
+    <!-- 上方控制列 (最小點擊高度 44px) -->
+    <header class="header-bar">
+      <div class="brand-title">
+        <span>🐱</span>
+        <span>阿喵老師的彩虹牌</span>
+      </div>
+
+      <div class="controls-group">
+        <div class="ctrl-item">
+          <select id="playerCountSelect" class="ctrl-select" title="遊玩人數">
+            <option value="2">2 人</option>
+            <option value="3">3 人</option>
+            <option value="4" selected>4 人</option>
+          </select>
+        </div>
+
+        <div class="ctrl-item">
+          <select id="difficultySelect" class="ctrl-select" title="電腦難度">
+            <option value="easy">簡單</option>
+            <option value="normal" selected>普通</option>
+            <option value="hard">困難</option>
+          </select>
+        </div>
+
+        <div class="ctrl-item">
+          <label class="ctrl-checkbox-label" title="自動喊喵開關">
+            <input type="checkbox" id="autoMeowToggle">
+            <span>自動喊喵</span>
+          </label>
+        </div>
+
+        <button id="btnNewGame" class="ctrl-btn primary" title="重新開始一局">
+          <span>🔄</span>
+          <span>重新開始</span>
+        </button>
+
+        <button id="btnRules" class="ctrl-btn" title="查看規則說明">
+          <span>📖</span>
+          <span>規則</span>
+        </button>
+
+        <button id="btnSound" class="ctrl-btn" title="開關音效">
+          <span id="soundIcon">🔊</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 牌桌透視場景 -->
+    <main class="table-container">
+      <div class="table-felt">
+
+        <!-- 電腦對手層 -->
+        <div class="opponents-layer" id="opponentsLayer">
+          <!-- 上方對手 -->
+          <div class="opponent-slot opponent-top" id="opp-slot-top" style="display: none;">
+            <div class="avatar-wrapper" id="opp-avatar-top">
+              <span id="opp-emoji-top">🐸</span>
+              <span class="avatar-badge" id="opp-count-top">7</span>
+              <span class="sleep-bubble" id="opp-sleep-top">💤</span>
+            </div>
+            <div class="opponent-info">
+              <div class="opponent-name" id="opp-name-top">呱呱</div>
+              <div class="opponent-cards-row" id="opp-cards-top"></div>
+            </div>
+          </div>
+
+          <!-- 左側對手 -->
+          <div class="opponent-slot opponent-left" id="opp-slot-left" style="display: none;">
+            <div class="avatar-wrapper" id="opp-avatar-left">
+              <span id="opp-emoji-left">🐱</span>
+              <span class="avatar-badge" id="opp-count-left">7</span>
+              <span class="sleep-bubble" id="opp-sleep-left">💤</span>
+            </div>
+            <div class="opponent-info">
+              <div class="opponent-name" id="opp-name-left">小橘</div>
+              <div class="opponent-cards-row" id="opp-cards-left"></div>
+            </div>
+          </div>
+
+          <!-- 右側對手 -->
+          <div class="opponent-slot opponent-right" id="opp-slot-right" style="display: none;">
+            <div class="avatar-wrapper" id="opp-avatar-right">
+              <span id="opp-emoji-right">🦉</span>
+              <span class="avatar-badge" id="opp-count-right">7</span>
+              <span class="sleep-bubble" id="opp-sleep-right">💤</span>
+            </div>
+            <div class="opponent-info">
+              <div class="opponent-name" id="opp-name-right">咕咕</div>
+              <div class="opponent-cards-row" id="opp-cards-right"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 桌面中央區 (抽牌堆、棄牌堆、家族標籤、方向箭頭) -->
+        <div class="table-center">
+          <!-- 抽牌堆 -->
+          <div class="pile-wrapper">
+            <div class="draw-pile" id="drawPile" onclick="onDrawClick()" title="點擊抽一張牌">
+              <div class="draw-pile-content">
+                <div class="draw-pile-rainbow-arc"></div>
+                <div class="draw-pile-paw">🐾</div>
+              </div>
+            </div>
+            <div class="pile-label" id="drawPileCount">抽牌堆 (95)</div>
+          </div>
+
+          <!-- 目前家族色彩標籤與方向 -->
+          <div class="center-indicators">
+            <div class="family-indicator" id="currentFamilyBadge" title="目前要跟的家族">
+              <span id="familyEmoji">🐱</span>
+              <span class="family-indicator-name" id="familyName">橘花貓</span>
+            </div>
+            <div class="direction-badge" id="directionBadge" title="出牌方向">
+              <span id="directionIcon">↻</span>
+            </div>
+          </div>
+
+          <!-- 棄牌堆 -->
+          <div class="pile-wrapper">
+            <div class="discard-pile" id="discardPile">
+              <div class="discard-placeholder">棄牌堆</div>
+            </div>
+            <div class="pile-label">棄牌堆</div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- 狀態列 -->
+    <div class="status-bar-container">
+      <div class="status-bar" id="statusBar">
+        <span class="status-dot"></span>
+        <span id="statusText">歡迎來到阿喵彩虹牌！請點擊「重新開始」發牌。</span>
+      </div>
+    </div>
+
+    <!-- 學生手牌與動作區 (平視不傾斜) -->
+    <footer class="player-section">
+      <div class="hand-wrapper">
+        <div class="hand-cards" id="handContainer">
+          <!-- 手牌動態渲染 -->
+        </div>
+      </div>
+
+      <div class="meow-container">
+        <button class="btn-meow" id="btnMeow" onclick="onMeowClick()" disabled title="出到剩一張時喊喵！">
+          <span>🐾</span>
+          <span>喵！</span>
+        </button>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- 自製遊戲內對話框 (Dialog Overlay) -->
+  <div class="dialog-overlay" id="dialogOverlay">
+    <div class="dialog-box">
+      <div class="dialog-header">
+        <div class="dialog-title" id="dialogTitle">標題</div>
+      </div>
+      <div class="dialog-body" id="dialogBody">
+        內容
+      </div>
+      <div class="dialog-buttons" id="dialogButtons">
+        <button class="ctrl-btn primary" onclick="closeDialog()">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 訊息浮層 -->
+  <div class="toast-container" id="toastContainer">
+    <div class="toast-box" id="toastBox">提示文字</div>
+  </div>
+
+  <!-- 外部依賴庫與規則核心 (依規格載入順序) -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="rainbow-core.js"></script>
+
+  <!-- 主程式腳本 -->
+  <script>
+    'use strict';
+
+    /* ==========================================================================
+       規格要求的全域變數與命名 (驗收使用)
+       ========================================================================== */
+    let state = null;
+    let gameEpoch = 0;
+    let isAnimating = false;
+
+    // 音效開關與 AudioContext
+    let soundEnabled = true;
+    let audioCtx = null;
+
+    /* ==========================================================================
+       音效系統 (Web Audio API 合成，無外部檔案依賴)
+       ========================================================================== */
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!soundEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'play') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'draw') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(560, now + 0.1);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      } else if (type === 'meow') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(850, now + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(500, now + 0.28);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      } else if (type === 'penalty') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'reverse') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(500, now);
+        osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(650, now + 0.2);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } else if (type === 'win') {
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          o.type = 'triangle';
+          o.frequency.setValueAtTime(freq, now + idx * 0.1);
+          g.gain.setValueAtTime(0.2, now + idx * 0.1);
+          g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.25);
+          o.start(now + idx * 0.1);
+          o.stop(now + idx * 0.1 + 0.25);
+        });
+      }
+    }
+
+    /* ==========================================================================
+       遊戲內對話框與 Toast (不使用 alert / confirm / prompt)
+       ========================================================================== */
+    function showDialog(title, html, buttons = []) {
+      const overlay = document.getElementById('dialogOverlay');
+      const titleEl = document.getElementById('dialogTitle');
+      const bodyEl = document.getElementById('dialogBody');
+      const btnsEl = document.getElementById('dialogButtons');
+
+      titleEl.textContent = title;
+      bodyEl.innerHTML = html;
+      btnsEl.innerHTML = '';
+
+      if (!buttons || buttons.length === 0) {
+        buttons = [{ text: '確定', primary: true, onClick: null }];
+      }
+
+      buttons.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'ctrl-btn ' + (b.primary ? 'primary' : '');
+        btn.textContent = b.text;
+        btn.onclick = () => {
+          closeDialog();
+          if (typeof b.onClick === 'function') b.onClick();
+        };
+        btnsEl.appendChild(btn);
+      });
+
+      overlay.classList.add('show');
+    }
+
+    function closeDialog() {
+      document.getElementById('dialogOverlay').classList.remove('show');
+    }
+
+    let toastTimer = null;
+    function showToast(text, durationMs = 2400) {
+      const box = document.getElementById('toastBox');
+      box.textContent = text;
+      box.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        box.classList.remove('show');
+      }, durationMs);
+    }
+
+    /* ==========================================================================
+       規格要求的介面函式骨架 (R1 建立骨架，R2–R8 逐步深化)
+       ========================================================================== */
+
+    // 依畫面上選的人數、難度開新局
+    function newGame() {
+      gameEpoch++;
+      isAnimating = false;
+      closeDialog();
+      document.querySelectorAll('.flying-card, .meow-bubble').forEach(el => el.remove());   // 清掉上一局還在飛的牌
+      const pCount = parseInt(document.getElementById('playerCountSelect').value, 10) || 4;
+      const diff = document.getElementById('difficultySelect').value || 'normal';
+      const autoMeow = document.getElementById('autoMeowToggle').checked;
+
+      const r = rbCreateGame({ playerCount: pCount, difficulty: diff, autoMeow: autoMeow });
+      state = r.state;
+      renderAll();
+      scheduleComputerTurn();
+      showToast('新的一局開始囉！每人發 7 張牌。');
+    }
+
+    // 核心流程分發器
+    async function dispatch(result) {
+      if (!result.ok) {
+        showToast('現在不能這樣做喔');
+        return false;
+      }
+      const epoch = gameEpoch;
+      isAnimating = true;
+
+      if (Array.isArray(result.events)) {
+        for (const e of result.events) {
+          await playEvent(e);
+          if (epoch !== gameEpoch) return false;
+        }
+      }
+
+      state = result.state;
+      isAnimating = false;   // 先解除，renderAll 才會把可出的牌標亮
+      renderAll();
+      scheduleComputerTurn();
+      // 學生剛抽到一張能出的牌：state 更新完才詢問，按鈕才會對到正確的 state
+      if (state.phase === 'drawn' && state.turn === 0) showDrawnPrompt();
+      return true;
+    }
+
+    // 學生抽到能出的牌：詢問「出這張／不出」
+    function showDrawnPrompt() {
+      if (!state || state.phase !== 'drawn' || state.turn !== 0) return;
+      const card = state.players[0].hand.find(c => c.id === state.drawnCardId);
+      if (!card) return;
+      const html = `
+        <div style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:10px 0;">
+          <div style="font-size:1rem; color:#fed7aa;">你抽到了可以出的牌：<strong>${rbCardName(card)}</strong>！</div>
+          <div style="transform:scale(1.1); margin:10px 0;">${renderCard(card, true).outerHTML}</div>
+          <div style="font-size:0.9rem; color:#cbd5e1;">要現在出這張牌，還是留在手上？</div>
+        </div>
+      `;
+      showDialog('抽到可出的牌', html, [
+        { text: '不出', primary: false, onClick: () => { dispatch(rbApply(state, { type: 'pass' })); } },
+        { text: '出這張牌', primary: true, onClick: () => { onCardClick(card.id); } }
+      ]);
+    }
+
+    // 玩家編號對應到畫面上的位置：'top' | 'left' | 'right'；學生自己回傳 null
+    function slotPosOf(playerIdx) {
+      const n = state ? state.players.length : 4;
+      if (playerIdx === 0) return null;
+      if (n === 2) return 'top';
+      if (n === 3) return playerIdx === 1 ? 'left' : 'right';
+      return ['left', 'top', 'right'][playerIdx - 1] || 'top';
+    }
+    const OPP_EMOJI = ['', '🐱', '🐸', '🦉'];   // 小橘、呱呱、咕咕
+
+    /* ==========================================================================
+       飛牌動畫輔助函式 (只用 transform 與 opacity，0.3–0.4 秒)
+       ========================================================================== */
+    function getPlayerSlotElement(playerIdx) {
+      if (playerIdx === 0) return document.getElementById('handContainer');
+      return document.getElementById('opp-avatar-' + slotPosOf(playerIdx));
+    }
+
+    function flyCard({ startRect, endRect, card, faceUp = true, duration = 350 }) {
+      return new Promise(resolve => {
+        if (!startRect || !endRect) {
+          resolve();
+          return;
+        }
+
+        const flyer = renderCard(card, faceUp);
+        flyer.classList.add('flying-card');
+        flyer.style.position = 'fixed';
+        flyer.style.left = `${startRect.left}px`;
+        flyer.style.top = `${startRect.top}px`;
+        flyer.style.width = `${startRect.width || 92}px`;
+        flyer.style.height = `${startRect.height || 128}px`;
+        flyer.style.margin = '0';
+        flyer.style.zIndex = '3500';
+        flyer.style.pointerEvents = 'none';
+        flyer.style.transformOrigin = 'center center';
+        flyer.style.transition = `transform ${duration}ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity ${duration}ms ease`;
+
+        document.body.appendChild(flyer);
+
+        const dx = (endRect.left + (endRect.width || 92) / 2) - (startRect.left + (startRect.width || 92) / 2);
+        const dy = (endRect.top + (endRect.height || 128) / 2) - (startRect.top + (startRect.height || 128) / 2);
+        const scale = (endRect.width && startRect.width) ? (endRect.width / startRect.width) : 1;
+
+        // 次幀觸發平移動畫
+        requestAnimationFrame(() => {
+          flyer.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+        });
+
+        setTimeout(() => {
+          if (flyer.parentNode) flyer.parentNode.removeChild(flyer);
+          resolve();
+        }, duration + 30);
+      });
+    }
+
+    // 事件動畫播放器 (playEvent)
+    async function playEvent(e) {
+      if (!e) return;
+
+      if (e.type === 'play') {
+        playSound('play');
+        let startRect = null;
+        if (e.player === 0) {
+          const cardEl = document.querySelector(`.hand-cards [data-card-id="${e.card.id}"]`);
+          startRect = cardEl ? cardEl.getBoundingClientRect() : document.getElementById('handContainer').getBoundingClientRect();
+        } else {
+          const slot = getPlayerSlotElement(e.player);
+          startRect = slot ? slot.getBoundingClientRect() : null;
+        }
+        const discardEl = document.getElementById('discardPile');
+        const endRect = discardEl ? discardEl.getBoundingClientRect() : null;
+
+        await flyCard({
+          startRect,
+          endRect,
+          card: e.card,
+          faceUp: true, // 電腦的牌翻成正面飛到棄牌堆
+          duration: 320
+        });
+      } else if (e.type === 'draw') {
+        playSound('draw');
+        const drawPileEl = document.getElementById('drawPile');
+        const startRect = drawPileEl ? drawPileEl.getBoundingClientRect() : null;
+        const targetSlot = getPlayerSlotElement(e.player);
+        const endRect = targetSlot ? targetSlot.getBoundingClientRect() : null;
+
+        const cards = Array.isArray(e.cards) ? e.cards : [e.card || null];
+        for (let i = 0; i < cards.length; i++) {
+          await flyCard({
+            startRect,
+            endRect,
+            card: cards[i],
+            faceUp: e.player === 0, // 學生抽到牌正面，其他人背面
+            duration: 280
+          });
+          if (i < cards.length - 1) {
+            await new Promise(r => setTimeout(r, 150));
+          }
+        }
+      } else if (e.type === 'canPlayDrawn') {
+        // 不在這裡詢問：等 dispatch 更新 state 後由 showDrawnPrompt() 處理
+      } else if (e.type === 'pass') {
+        const name = state && state.players[e.player] ? state.players[e.player].name : '玩家';
+        // 播放事件時 state 還是動作前的狀態：'drawn' 代表抽到能出的牌卻選擇不出
+        showToast(state && state.phase === 'drawn' ? `${name} 決定不出牌` : `${name} 沒牌可出，換下一位`);
+        await new Promise(r => setTimeout(r, 200));
+      } else if (e.type === 'skip') {
+        const name = state && state.players[e.player] ? state.players[e.player].name : '玩家';
+        showToast(`${name} 睡著了，暫停一次 💤`);
+        const sleepPos = slotPosOf(e.player);
+        const sleepBubble = sleepPos ? document.getElementById(`opp-sleep-${sleepPos}`) : null;
+        if (sleepBubble) {
+          sleepBubble.style.display = 'block';
+          setTimeout(() => { sleepBubble.style.display = 'none'; }, 1600);
+        }
+        await new Promise(r => setTimeout(r, 400));
+      } else if (e.type === 'reverse') {
+        playSound('reverse');
+        showToast('出牌方向反轉了！🔄');
+        const dirBadge = document.getElementById('directionBadge');
+        if (dirBadge) {
+          dirBadge.style.transform = `scale(1.3) ${e.direction === -1 ? 'scaleX(-1)' : ''}`;
+          setTimeout(() => { dirBadge.style.transform = ''; }, 400);
+        }
+        await new Promise(r => setTimeout(r, 300));
+      } else if (e.type === 'family') {
+        const fam = rbFamily(e.family);
+        const name = state && state.players[e.player] ? state.players[e.player].name : '玩家';
+        showToast(`${name} 指定了 ${fam ? fam.name : ''} 家族`);
+        await new Promise(r => setTimeout(r, 300));
+      } else if (e.type === 'peek') {
+        if (e.by === 0) {
+          // 學生偷看對手
+          const targetName = state.players[e.target].name;
+          const cardsHtml = `
+            <div style="font-size:0.95rem; margin-bottom:10px;">${targetName} 的手牌如下（共 ${e.cards.length} 張）：</div>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-height:260px; overflow-y:auto; padding:8px;">
+              ${e.cards.map(c => renderCard(c, true).outerHTML).join('')}
+            </div>
+          `;
+          // 等學生看完（按關閉或 3.5 秒）才繼續，避免電腦在對話框後面偷偷出牌
+          await new Promise(resolve => {
+            let done = false;
+            const finish = (auto) => { if (done) return; done = true; if (auto) closeDialog(); resolve(); };
+            showDialog(`👀 偷看 ${targetName} 的手牌`, cardsHtml, [
+              { text: '看完關閉', primary: true, onClick: () => finish(false) }
+            ]);
+            setTimeout(() => finish(true), 3500);
+          });
+        } else {
+          const byName = state.players[e.by].name;
+          const targetName = state.players[e.target].name;
+          showToast(`${byName} 偷看了 ${targetName} 的手牌 👀`);
+          await new Promise(r => setTimeout(r, 400));
+        }
+      } else if (e.type === 'gift') {
+        const fromName = state.players[e.from].name;
+        const toName = state.players[e.to].name;
+        showToast(`${fromName} 送了一張牌給 ${toName} 🎁`);
+        const startRect = getPlayerSlotElement(e.from)?.getBoundingClientRect();
+        const endRect = getPlayerSlotElement(e.to)?.getBoundingClientRect();
+        await flyCard({
+          startRect,
+          endRect,
+          card: e.card,
+          faceUp: (e.from === 0 || e.to === 0),
+          duration: 350
+        });
+      } else if (e.type === 'meow') {
+        playSound('meow');
+        const name = state.players[e.player].name;
+        showToast(`🐱 ${name} 喊了「喵！」`);
+        const anchor = e.player === 0 ? document.getElementById('btnMeow') : getPlayerSlotElement(e.player);
+        if (anchor) {
+          const rc = anchor.getBoundingClientRect();
+          const bubble = document.createElement('div');
+          bubble.className = 'meow-bubble';
+          bubble.textContent = '喵！';
+          bubble.style.left = `${rc.left + rc.width / 2}px`;
+          bubble.style.top = `${rc.top}px`;
+          document.body.appendChild(bubble);
+          setTimeout(() => bubble.remove(), 1300);
+        }
+        await new Promise(r => setTimeout(r, 500));
+      } else if (e.type === 'penalty') {
+        playSound('penalty');
+        const name = state.players[e.player].name;
+        showToast(`⚠️ ${name} 忘了喊喵，罰抽 2 張！`);
+        await new Promise(r => setTimeout(r, 500));
+      } else if (e.type === 'reshuffle') {
+        showToast('抽牌堆用完了，重新洗牌 🔀');
+        await new Promise(r => setTimeout(r, 400));
+      } else if (e.type === 'win') {
+        playSound('win');
+        const winner = state.players[e.player];
+        const isHumanWin = e.player === 0;
+        if (isHumanWin && typeof confetti === 'function') {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        }
+        let desc = isHumanWin ? '恭喜您獲得勝利！太厲害了！🎉' : `${winner.name} 獲勝了！再接再厲！`;
+        if (e.reason === 'stalemate') {
+          desc += '<br><small style="color:#94a3b8;">(牌都抽完了，手牌最少的人獲勝)</small>';
+        }
+        showDialog(
+          isHumanWin ? '🏆 獲勝！' : '遊戲結束',
+          `<div style="font-size:1.1rem; text-align:center; padding:16px 0;">${desc}</div>`,
+          [{ text: '再玩一局', primary: true, onClick: () => newGame() }]
+        );
+      }
+    }
+
+    // 電腦回合排程 (防競態重試，確保絕對不卡死)
+    let computerTimer = null;   // 同一時間只留一個電腦回合的計時器，避免電腦連續搶著出牌
+    function scheduleComputerTurn() {
+      clearTimeout(computerTimer);
+      if (!state || state.phase === 'over' || state.players[state.turn].isHuman) return;
+      const epoch = gameEpoch;
+      const wait = state.meowPending === 0 ? 2000 : 700;
+      computerTimer = setTimeout(function runComputerTurn() {
+        if (epoch !== gameEpoch) return;
+        if (isAnimating) {
+          computerTimer = setTimeout(runComputerTurn, 80);
+          return;
+        }
+        if (state.phase === 'over' || state.players[state.turn].isHuman) return;
+        const act = rbChooseAction(state);
+        dispatch(rbApply(state, act));
+      }, wait);
+    }
+
+    // 完全依據 state 重畫整個牌桌
+    function renderAll() {
+      if (!state) return;
+
+      // 1. 更新抽牌堆張數
+      const drawCount = state.drawPile ? state.drawPile.length : 0;
+      document.getElementById('drawPileCount').textContent = `抽牌堆 (${drawCount})`;
+
+      // 2. 更新目前家族色彩指示器
+      const fam = rbFamily(state.currentFamily);
+      if (fam) {
+        const badge = document.getElementById('currentFamilyBadge');
+        badge.style.backgroundColor = fam.color;
+        badge.style.color = (fam.id === 'owl') ? '#1e293b' : '#ffffff';
+        document.getElementById('familyEmoji').textContent = fam.emoji;
+        document.getElementById('familyName').textContent = fam.name;
+      }
+
+      // 3. 更新出牌方向
+      const dirBadge = document.getElementById('directionBadge');
+      if (state.direction === -1) {
+        dirBadge.classList.add('reverse');
+        document.getElementById('directionIcon').textContent = '↺';
+      } else {
+        dirBadge.classList.remove('reverse');
+        document.getElementById('directionIcon').textContent = '↻';
+      }
+
+      // 4. 更新棄牌堆頂牌
+      const discard = document.getElementById('discardPile');
+      discard.innerHTML = '';
+      const top = rbTopCard(state);
+      if (top) {
+        const topEl = renderCard(top, true);
+        discard.appendChild(topEl);
+      } else {
+        discard.innerHTML = '<div class="discard-placeholder">棄牌堆</div>';
+      }
+
+      // 5. 更新對手位置與狀態 (依據 playerCount 安排)
+      renderOpponents();
+
+      // 6. 更新學生手牌
+      renderHand();
+
+      // 7. 更新「喵！」按鈕狀態
+      const meowBtn = document.getElementById('btnMeow');
+      const canMeow = rbCanMeow(state, 0);
+      meowBtn.disabled = !canMeow;
+      meowBtn.classList.toggle('bounce', canMeow);
+
+      // 8. 更新狀態列文字
+      updateStatusBar();
+    }
+
+    // 更新對手 UI
+    function renderOpponents() {
+      const topSlot = document.getElementById('opp-slot-top');
+      const leftSlot = document.getElementById('opp-slot-left');
+      const rightSlot = document.getElementById('opp-slot-right');
+
+      topSlot.style.display = 'none';
+      leftSlot.style.display = 'none';
+      rightSlot.style.display = 'none';
+
+      const n = state.players.length;
+      // 依人數對應槽位：
+      // 2 人：對手 1 在 top
+      // 3 人：對手 1 在 left、對手 2 在 right
+      // 4 人：對手 1 在 left、對手 2 在 top、對手 3 在 right
+      const slots = [];
+      if (n === 2) {
+        slots.push({ pIdx: 1, el: topSlot, nameId: 'opp-name-top', countId: 'opp-count-top', cardsId: 'opp-cards-top', sleepId: 'opp-sleep-top', emojiId: 'opp-emoji-top', emoji: '🐸' });
+      } else if (n === 3) {
+        slots.push({ pIdx: 1, el: leftSlot, nameId: 'opp-name-left', countId: 'opp-count-left', cardsId: 'opp-cards-left', sleepId: 'opp-sleep-left', emojiId: 'opp-emoji-left', emoji: '🐱' });
+        slots.push({ pIdx: 2, el: rightSlot, nameId: 'opp-name-right', countId: 'opp-count-right', cardsId: 'opp-cards-right', sleepId: 'opp-sleep-right', emojiId: 'opp-emoji-right', emoji: '🦉' });
+      } else if (n === 4) {
+        slots.push({ pIdx: 1, el: leftSlot, nameId: 'opp-name-left', countId: 'opp-count-left', cardsId: 'opp-cards-left', sleepId: 'opp-sleep-left', emojiId: 'opp-emoji-left', emoji: '🐱' });
+        slots.push({ pIdx: 2, el: topSlot, nameId: 'opp-name-top', countId: 'opp-count-top', cardsId: 'opp-cards-top', sleepId: 'opp-sleep-top', emojiId: 'opp-emoji-top', emoji: '🐸' });
+        slots.push({ pIdx: 3, el: rightSlot, nameId: 'opp-name-right', countId: 'opp-count-right', cardsId: 'opp-cards-right', sleepId: 'opp-sleep-right', emojiId: 'opp-emoji-right', emoji: '🦉' });
+      }
+
+      slots.forEach(slot => {
+        const player = state.players[slot.pIdx];
+        if (!player) return;
+        slot.el.style.display = 'flex';
+        document.getElementById(slot.nameId).textContent = player.name;
+        document.getElementById(slot.countId).textContent = player.hand.length;
+        document.getElementById(slot.emojiId).textContent = OPP_EMOJI[slot.pIdx];
+
+        // 輪到時頭像發亮
+        slot.el.classList.toggle('active-turn', state.turn === slot.pIdx);
+
+        // 牌背列表 (最多畫 7 張)
+        const cardsEl = document.getElementById(slot.cardsId);
+        cardsEl.innerHTML = '';
+        const showCount = Math.min(player.hand.length, 7);
+        for (let i = 0; i < showCount; i++) {
+          const mini = document.createElement('div');
+          mini.className = 'mini-card-back';
+          mini.textContent = '🐾';
+          cardsEl.appendChild(mini);
+        }
+      });
+    }
+
+    // 更新手牌 UI (R1 先顯示卡片基本結構，R2 完整實作牌面版型)
+    function renderHand() {
+      const container = document.getElementById('handContainer');
+      container.innerHTML = '';
+      const human = state.players[0];
+      if (!human) return;
+
+      const playables = rbPlayableCards(state, 0);
+      const playableIds = new Set(playables.map(c => c.id));
+      const hand = human.hand;
+      const count = hand.length;
+
+      // 扇形排列時，依可用寬度決定每張牌露出多少；露出不到 26px 就改成可左右捲動的一排
+      const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 92;
+      const avail = container.parentElement.clientWidth - 32;
+      const fanStep = count > 1 ? Math.min(cardW - 22, (avail - cardW) / (count - 1)) : cardW;
+      const fanMode = count <= 12 && fanStep >= 26;
+
+      hand.forEach((card, idx) => {
+        const cardEl = renderCard(card, true);
+        const canPlay = playableIds.has(card.id);
+
+        if (state.turn === 0 && !isAnimating) {
+          if (canPlay) {
+            cardEl.classList.add('playable');
+          } else {
+            cardEl.classList.add('unplayable');
+          }
+        }
+
+        // 弧度旋轉 (小於等於 12 張時扇形分佈，總張角 ≤ 40 度)
+        // 行內的 transform 會蓋掉 .playable 的上浮，所以上浮量要一起算進來
+        const lift = (state.turn === 0 && !isAnimating && canPlay) ? -14 : 0;
+        if (fanMode && count > 1) {
+          const maxAngle = Math.min(24, (count - 1) * 4);   // 張角小一點，兩側的牌才不會超出畫面
+          const step = maxAngle / (count - 1);
+          const angle = -maxAngle / 2 + idx * step;
+          const offsetY = Math.abs(angle) * 0.6;
+          cardEl.style.transform = `translateY(${offsetY + lift}px) rotate(${angle}deg)`;
+          cardEl.style.marginLeft = (idx === 0) ? '0px' : `${fanStep - cardW}px`;
+        } else if (!fanMode) {
+          cardEl.style.marginLeft = '4px';
+          cardEl.style.marginRight = '4px';
+        }
+
+        cardEl.onclick = () => onCardClick(card.id);
+        container.appendChild(cardEl);
+      });
+    }
+
+    // 狀態列更新
+    function updateStatusBar() {
+      const textEl = document.getElementById('statusText');
+      if (!state) return;
+
+      if (state.phase === 'over') {
+        const winner = state.players[state.winner];
+        textEl.textContent = `🎉 遊戲結束！贏家是 ${winner.name}！`;
+        return;
+      }
+
+      if (state.turn === 0) {
+        const fam = rbFamily(state.currentFamily);
+        const top = rbTopCard(state);
+        if (state.phase === 'drawn') {
+          textEl.textContent = '你抽到一張可以出的牌！點那張牌出掉，或點抽牌堆選擇不出。';
+          return;
+        }
+        let cond = fam ? `${fam.name} 家族` : '';
+        if (top && top.type === 'num') cond += ` 或數字 ${top.value}`;
+        else if (top && RB_TYPES[top.type] && top.family) cond += ` 或「${RB_TYPES[top.type].name}」`;
+        textEl.textContent = `輪到你了！出一張 ${cond} 的牌，或點抽牌堆抽一張。`;
+      } else {
+        const curr = state.players[state.turn];
+        textEl.textContent = `${curr.name} 正在思考中...`;
+      }
+    }
+
+    // 產生一張牌的 DOM 元素 (R2 完整依第 4 節規範實作)
+    function renderCard(card, faceUp = true) {
+      const cardView = document.createElement('div');
+      cardView.className = 'card-view';
+      if (card && card.id !== undefined) {
+        cardView.setAttribute('data-card-id', card.id);
+      }
+
+      const cardInner = document.createElement('div');
+      cardInner.className = 'card-inner' + (faceUp ? '' : ' flipped');
+
+      // 正面
+      const front = document.createElement('div');
+      front.className = 'card-face card-front';
+
+      if (card) {
+        const isWild = card.type === 'rainbow' || card.type === 'storm';
+        if (!isWild && card.family) {
+          const fam = rbFamily(card.family);
+          front.style.backgroundColor = fam.light;
+          front.style.borderColor = fam.dark;
+          front.style.color = fam.dark;
+
+          // 淡淡底紋 (12% 不透明度)
+          const pattern = document.createElement('div');
+          pattern.className = `card-pattern-overlay pattern-${fam.pattern}`;
+          front.appendChild(pattern);
+
+          // 角標內容
+          let cornerValHtml = '';
+          if (card.type === 'num') {
+            const isUnderlined = card.value === 6 || card.value === 9;
+            cornerValHtml = `<span class="corner-val${isUnderlined ? ' num-underlined' : ''}">${card.value}</span>`;
+          } else if (card.type === 'sleep') {
+            cornerValHtml = '<span class="corner-val">💤</span>';
+          } else if (card.type === 'reverse') {
+            cornerValHtml = '<span class="corner-val">🔄</span>';
+          } else if (card.type === 'fish') {
+            cornerValHtml = '<span class="corner-val">+2</span>';
+          } else if (card.type === 'peek') {
+            cornerValHtml = '<span class="corner-val">👀</span>';
+          } else if (card.type === 'gift') {
+            cornerValHtml = '<span class="corner-val">🎁</span>';
+          }
+
+          // 左上角標
+          const tl = document.createElement('div');
+          tl.className = 'card-corner corner-tl';
+          tl.innerHTML = `${cornerValHtml}<span class="corner-emoji">${fam.emoji}</span>`;
+          front.appendChild(tl);
+
+          // 右下角標 (旋轉 180 度)
+          const br = document.createElement('div');
+          br.className = 'card-corner corner-br';
+          br.innerHTML = `${cornerValHtml}<span class="corner-emoji">${fam.emoji}</span>`;
+          front.appendChild(br);
+
+          // 中央主體
+          const center = document.createElement('div');
+          center.className = 'card-center-body';
+
+          if (card.type === 'num') {
+            const isUnderlined = card.value === 6 || card.value === 9;
+            center.innerHTML = `<span class="card-big-num${isUnderlined ? ' num-underlined-center' : ''}">${card.value}</span>`;
+          } else if (card.type === 'sleep') {
+            center.innerHTML = `<span class="card-action-icon">💤</span><span class="card-action-name">打瞌睡</span>`;
+          } else if (card.type === 'reverse') {
+            center.innerHTML = `<span class="card-action-icon">🔄</span><span class="card-action-name">回頭走</span>`;
+          } else if (card.type === 'fish') {
+            center.innerHTML = `<span class="card-action-icon">🐟</span><span class="card-action-sub">+2</span><span class="card-action-name">請吃魚</span>`;
+          } else if (card.type === 'peek') {
+            center.innerHTML = `<span class="card-action-icon">👀</span><span class="card-action-name">偷看</span>`;
+          } else if (card.type === 'gift') {
+            center.innerHTML = `<span class="card-action-icon">🎁</span><span class="card-action-name">送禮</span>`;
+          }
+          front.appendChild(center);
+
+        } else {
+          // 彩虹牌 / 彩虹風暴
+          front.style.backgroundColor = '#2b3a67';
+          front.style.borderColor = '#e2e8f0';
+          front.style.color = '#ffffff';
+
+          // 四角家族色小圓點
+          const d1 = document.createElement('div'); d1.className = 'rainbow-dot dot-tl'; front.appendChild(d1);
+          const d2 = document.createElement('div'); d2.className = 'rainbow-dot dot-tr'; front.appendChild(d2);
+          const d3 = document.createElement('div'); d3.className = 'rainbow-dot dot-bl'; front.appendChild(d3);
+          const d4 = document.createElement('div'); d4.className = 'rainbow-dot dot-br'; front.appendChild(d4);
+
+          // 角標
+          const tl = document.createElement('div');
+          tl.className = 'card-corner corner-tl';
+          tl.innerHTML = `<span class="corner-val">${card.type === 'storm' ? '+3' : '🌈'}</span>`;
+          front.appendChild(tl);
+
+          const br = document.createElement('div');
+          br.className = 'card-corner corner-br';
+          br.innerHTML = `<span class="corner-val">${card.type === 'storm' ? '+3' : '🌈'}</span>`;
+          front.appendChild(br);
+
+          // 中央主體
+          const center = document.createElement('div');
+          center.className = 'card-center-body';
+          if (card.type === 'storm') {
+            center.innerHTML = `
+              <span class="card-action-icon">🌈⚡</span>
+              <span class="card-action-sub">+3</span>
+              <span class="card-action-name">彩虹風暴</span>
+            `;
+          } else {
+            center.innerHTML = `
+              <span class="card-action-icon">🌈</span>
+              <span class="card-action-name" style="margin-top:6px; font-size:calc(var(--card-w) * 0.16);">彩虹牌</span>
+            `;
+          }
+          front.appendChild(center);
+        }
+      }
+
+      // 牌背
+      const back = document.createElement('div');
+      back.className = 'card-face card-back';
+      back.innerHTML = '<div class="card-back-arc"></div><div class="card-back-paw">🐾</div>';
+
+      cardInner.appendChild(front);
+      cardInner.appendChild(back);
+      cardView.appendChild(cardInner);
+      return cardView;
+    }
+
+    // 全牌組預覽模式 (?preview=1)
+    function renderPreviewMode() {
+      const deck = rbCreateDeck();
+      const modal = document.createElement('div');
+      modal.className = 'preview-modal';
+
+      // 標頭
+      modal.innerHTML = `
+        <div class="preview-header">
+          <div>
+            <div class="preview-title">🐱 阿喵彩虹牌 - 全牌組 110 張預覽 (?preview=1)</div>
+            <div style="font-size:0.85rem; color:#94a3b8; margin-top:4px;">
+              四家族各 26 張（共 104 張）+ 萬用牌 6 張 = 110 張正面，加 1 張牌背示範
+            </div>
+          </div>
+          <button class="ctrl-btn" onclick="window.location.search=''">返回遊戲牌桌</button>
+        </div>
+      `;
+
+      // 依家族分組
+      const groups = [
+        { title: '🐱 橘花貓家族 (26 張：數字 1–9 各兩張、打瞌睡2、回頭走2、請吃魚2、偷看1、送禮1)', filter: c => c.family === 'cat' },
+        { title: '🐸 綠青蛙家族 (26 張：數字 1–9 各兩張、打瞌睡2、回頭走2、請吃魚2、偷看1、送禮1)', filter: c => c.family === 'frog' },
+        { title: '🦉 白貓頭鷹家族 (26 張：數字 1–9 各兩張、打瞌睡2、回頭走2、請吃魚2、偷看1、送禮1)', filter: c => c.family === 'owl' },
+        { title: '🐰 粉紅兔家族 (26 張：數字 1–9 各兩張、打瞌睡2、回頭走2、請吃魚2、偷看1、送禮1)', filter: c => c.family === 'rabbit' },
+        { title: '🌈 彩虹萬用牌 (6 張：彩虹牌 4 張、彩虹風暴 2 張)', filter: c => c.type === 'rainbow' || c.type === 'storm' }
+      ];
+
+      groups.forEach(g => {
+        const sec = document.createElement('div');
+        sec.className = 'preview-section';
+        sec.innerHTML = `<div class="preview-section-title">${g.title}</div>`;
+
+        const grid = document.createElement('div');
+        grid.className = 'preview-grid';
+
+        const cards = deck.filter(g.filter);
+        cards.forEach(c => {
+          const cEl = renderCard(c, true);
+          cEl.title = `${rbCardName(c)} (ID: ${c.id})`;
+          grid.appendChild(cEl);
+        });
+
+        sec.appendChild(grid);
+        modal.appendChild(sec);
+      });
+
+      // 牌背示範區
+      const backSec = document.createElement('div');
+      backSec.className = 'preview-section';
+      backSec.innerHTML = `
+        <div class="preview-section-title">🐾 牌背樣式 (深藍底、白色細邊框、中央 🐾 肉球、四色家族弧線)</div>
+        <div style="font-size:0.85rem; color:#cbd5e1; margin-bottom:12px;">點擊卡片可測試 3D 翻牌效果</div>
+      `;
+      const backGrid = document.createElement('div');
+      backGrid.className = 'preview-grid';
+
+      // 一張背面
+      const backCard = renderCard(deck[0], false);
+      backCard.onclick = () => {
+        backCard.querySelector('.card-inner').classList.toggle('flipped');
+      };
+      backGrid.appendChild(backCard);
+
+      // 一張正面點擊翻轉示範
+      const flipDemo = renderCard(deck[10], true);
+      flipDemo.onclick = () => {
+        flipDemo.querySelector('.card-inner').classList.toggle('flipped');
+      };
+      backGrid.appendChild(flipDemo);
+
+      backSec.appendChild(backGrid);
+      modal.appendChild(backSec);
+
+      document.body.appendChild(modal);
+    }
+
+    // 學生點擊手牌
+    function onCardClick(cardId) {
+      if (!state || isAnimating || state.turn !== 0) return;
+
+      const card = state.players[0].hand.find(c => c.id === cardId);
+      if (!card) return;
+
+      const playables = rbPlayableCards(state, 0);
+      if (!playables.some(c => c.id === cardId)) {
+        showToast('這張現在不能出喔');
+        return;
+      }
+
+      // 檢查是否需要選家族/對手/送禮
+      const needs = rbNeeds(state, card);
+      if (needs.family) {
+        promptSelectFamily(card);
+        return;
+      }
+      if (needs.target) {
+        promptSelectTarget(card);
+        return;
+      }
+      if (needs.gift) {
+        promptSelectGift(card);
+        return;
+      }
+
+      dispatch(rbApply(state, { type: 'play', cardId: card.id }));
+    }
+
+    // 點擊抽牌堆
+    function onDrawClick() {
+      if (!state || isAnimating || state.turn !== 0) return;
+      if (state.phase === 'drawn') {
+        showDrawnPrompt();
+        return;
+      }
+      dispatch(rbApply(state, { type: 'draw' }));
+    }
+
+    // 學生按「喵！」
+    function onMeowClick() {
+      if (!state || isAnimating) return;
+      if (!rbCanMeow(state, 0)) {
+        showToast('現在不能喊喵喔');
+        return;
+      }
+      playSound('meow');
+      dispatch(rbMeow(state, 0));
+    }
+
+    // 互動對話框骨架 (選家族/對手/送禮等)
+    function promptSelectFamily(card) {
+      const html = `
+        <div style="display:flex; justify-content:space-around; padding:10px 0;">
+          ${RB_FAMILIES.map(f => `
+            <button class="ctrl-btn" style="background:${f.color}; color:${f.id==='owl'?'#000':'#fff'}; font-weight:bold; height:50px; min-width:80px;" onclick="chooseFamily(${card.id}, '${f.id}')">
+              ${f.emoji} ${f.name}
+            </button>
+          `).join('')}
+        </div>
+      `;
+      showDialog('請指定家族', html, [{ text: '取消', primary: false, onClick: null }]);
+    }
+    window.chooseFamily = function(cardId, familyId) {
+      closeDialog();
+      dispatch(rbApply(state, { type: 'play', cardId: cardId, family: familyId }));
+    };
+
+    function promptSelectTarget(card) {
+      const others = state.players.filter((p, i) => i !== 0);
+      const html = `
+        <div style="display:flex; flex-direction:column; gap:10px; padding:10px 0;">
+          ${others.map((p, idx) => `
+            <button class="ctrl-btn" style="height:48px;" onclick="chooseTarget(${card.id}, ${idx + 1})">
+              偷看 ${p.name} 的手牌 (${p.hand.length} 張)
+            </button>
+          `).join('')}
+        </div>
+      `;
+      showDialog('偷看：請選擇對手', html, [{ text: '取消', primary: false, onClick: null }]);
+    }
+    window.chooseTarget = function(cardId, targetPlayer) {
+      closeDialog();
+      dispatch(rbApply(state, { type: 'play', cardId: cardId, target: targetPlayer }));
+    };
+
+    function promptSelectGift(card) {
+      const rest = state.players[0].hand.filter(c => c.id !== card.id);
+      const html = `
+        <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-height:220px; overflow-y:auto; padding:10px 0;">
+          ${rest.map(c => `
+            <button class="ctrl-btn" style="height:44px;" onclick="chooseGift(${card.id}, ${c.id})">
+              ${rbCardName(c)}
+            </button>
+          `).join('')}
+        </div>
+      `;
+      showDialog('送禮：請挑一張送給下一位', html, [{ text: '取消', primary: false, onClick: null }]);
+    }
+    window.chooseGift = function(cardId, giftCardId) {
+      closeDialog();
+      dispatch(rbApply(state, { type: 'play', cardId: cardId, giftCardId: giftCardId }));
+    };
+
+    // 規則說明視窗
+    function showRulesDialog() {
+      let typesHtml = '';
+      for (const k in RB_TYPES) {
+        typesHtml += `<li style="margin-bottom:8px"><strong>${RB_TYPES[k].name}</strong>：${RB_TYPES[k].desc}</li>`;
+      }
+      const html = `
+        <div style="max-height:60vh; overflow-y:auto; font-size:0.9rem; text-align:left;">
+          <h4 style="color:#fed7aa; margin-bottom:6px;">🎮 遊戲目標</h4>
+          <p style="margin-bottom:12px;">最先出完手牌的人獲勝！四個家族分別為橘花貓 🐱、綠青蛙 🐸、白貓頭鷹 🦉、粉紅兔 🐰。</p>
+
+          <h4 style="color:#fed7aa; margin-bottom:6px;">🃏 出牌規則</h4>
+          <p style="margin-bottom:12px;">輪到自己時，出一張與棄牌堆最上面那張「同家族」或「同數字／同功能」的牌，或出彩虹牌。沒牌出時可抽一張。</p>
+
+          <h4 style="color:#fed7aa; margin-bottom:6px;">🐾 喊「喵！」規則</h4>
+          <p style="margin-bottom:12px;">出到剩一張時，務必按下右下角的「喵！」按鈕。若忘記按，輪到別人動作時會被抓到罰抽 2 張牌！</p>
+
+          <h4 style="color:#fed7aa; margin-bottom:6px;">✨ 特殊牌效果</h4>
+          <ul style="padding-left:20px; margin-bottom:8px;">
+            ${typesHtml}
+          </ul>
+        </div>
+      `;
+      showDialog('📖 阿喵彩虹牌 - 遊戲規則', html, [{ text: '我知道了', primary: true, onClick: null }]);
+    }
+
+    /* ==========================================================================
+       事件綁定與初始化
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      // 網址參數檢查：若包含 ?preview=1 則啟動全牌組預覽模式 (R2 驗收標準)
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('preview') === '1') {
+        renderPreviewMode();
+        return;
+      }
+
+      // 重新開始按鈕
+      document.getElementById('btnNewGame').onclick = () => {
+        if (state && state.phase !== 'over') {
+          showDialog('重新開始？', '這局遊戲還沒結束，確定要重新開始一局嗎？', [
+            { text: '繼續本局', primary: false, onClick: null },
+            { text: '確定重開', primary: true, onClick: () => newGame() }
+          ]);
+        } else {
+          newGame();
+        }
+      };
+
+      // 規則按鈕
+      document.getElementById('btnRules').onclick = showRulesDialog;
+
+      // 音效切換按鈕
+      document.getElementById('btnSound').onclick = () => {
+        soundEnabled = !soundEnabled;
+        document.getElementById('soundIcon').textContent = soundEnabled ? '🔊' : '🔇';
+        showToast(soundEnabled ? '音效已開啟' : '音效已靜音');
+      };
+
+      // 切換人數或難度時若在遊戲中需確認
+      const pSelect = document.getElementById('playerCountSelect');
+      let prevCount = pSelect.value;
+      pSelect.onchange = () => {
+        if (state && state.phase !== 'over') {
+          showDialog('切換人數確認', '更換人數將會重新開始一局，確定要切換嗎？', [
+            { text: '取消', primary: false, onClick: () => { pSelect.value = prevCount; } },
+            { text: '確定切換', primary: true, onClick: () => { prevCount = pSelect.value; newGame(); } }
+          ]);
+        } else {
+          prevCount = pSelect.value;
+          newGame();
+        }
+      };
+
+      const dSelect = document.getElementById('difficultySelect');
+      let prevDiff = dSelect.value;
+      dSelect.onchange = () => {
+        if (state && state.phase !== 'over') {
+          showDialog('切換難度確認', '更換難度將會重新開始一局，確定要切換嗎？', [
+            { text: '取消', primary: false, onClick: () => { dSelect.value = prevDiff; } },
+            { text: '確定切換', primary: true, onClick: () => { prevDiff = dSelect.value; newGame(); } }
+          ]);
+        } else {
+          prevDiff = dSelect.value;
+          newGame();
+        }
+      };
+
+      // 「自動喊喵」是開局時決定的，中途切換要到下一局才生效
+      document.getElementById('autoMeowToggle').onchange = () => {
+        if (state && state.phase !== 'over') showToast('「自動喊喵」會從下一局開始生效');
+      };
+
+      // 視窗大小或方向改變時，手牌的排列要重算
+      window.addEventListener('resize', () => { if (state && !isAnimating) renderAll(); });
+
+      // 開局初始化
+      newGame();
+    });
+  </script>
+</body>
+</html>
