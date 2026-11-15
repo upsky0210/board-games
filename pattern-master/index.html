@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>牌型大師</title>
+  <style>
+    :root {
+      --card-w: 86px;
+      --card-h: 122px;
+      --card-radius: 9px;
+      --felt-1: #2a9d74;
+      --felt-2: #17694c;
+      --ink: #1f2937;
+      --accent: #f59e0b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+      background: #0f3d2e;
+      color: var(--ink);
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+    .app { height: 100%; display: flex; flex-direction: column; }
+
+    /* ---------- 上方工具列 ---------- */
+    .header-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 6px 12px; background: #12251e; color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,.35); z-index: 5;
+    }
+    .brand { font-size: 1.2rem; font-weight: 900; letter-spacing: 1px; margin-right: auto; white-space: nowrap; }
+    .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ctrl-label { font-size: .85rem; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    select.ctrl {
+      height: 34px; border-radius: 8px; border: 1px solid #3f5d52; background: #1d3a30; color: #fff;
+      padding: 0 6px; font-size: .9rem; font-family: inherit;
+    }
+    .btn {
+      height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #3f5d52; background: #1d3a30; color: #fff;
+      font-size: .9rem; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap;
+      transition: transform .1s, background .15s, opacity .15s;
+    }
+    .btn:hover { background: #28503f; }
+    .btn:active { transform: scale(.96); }
+    .btn.primary { background: var(--accent); border-color: #d97706; color: #1f1300; }
+    .btn.primary:hover { background: #fbbf24; }
+    .btn:disabled { opacity: .4; cursor: default; transform: none; }
+
+    /* ---------- 牌桌 ---------- */
+    .table { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+    .felt {
+      position: absolute; left: 4%; right: 4%; top: 6%; bottom: 2%;
+      background: radial-gradient(ellipse at 50% 40%, var(--felt-1), var(--felt-2));
+      border: 10px solid #7a4a22; border-radius: 46% / 40%;
+      box-shadow: 0 18px 30px rgba(0,0,0,.45), inset 0 0 60px rgba(0,0,0,.35);
+      transform: perspective(900px) rotateX(18deg); transform-origin: 50% 100%;
+    }
+    .seat { position: absolute; display: none; flex-direction: column; align-items: center; gap: 3px; color: #fff; z-index: 2; }
+    .seat.show { display: flex; }
+    #seat-top { top: 6px; left: 50%; transform: translateX(-50%); }
+    #seat-left { left: 12px; top: 40%; transform: translateY(-50%); }
+    #seat-right { right: 12px; top: 40%; transform: translateY(-50%); }
+    .avatar {
+      width: 58px; height: 58px; border-radius: 50%; background: #fff7e6; border: 3px solid #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 34px;
+      box-shadow: 0 4px 10px rgba(0,0,0,.4); position: relative; transition: box-shadow .2s, transform .2s;
+    }
+    .seat.active .avatar { box-shadow: 0 0 0 4px var(--accent), 0 0 18px 6px rgba(245,158,11,.7); transform: scale(1.08); }
+    .seat-name { font-weight: 800; font-size: .9rem; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+    .seat-count {
+      position: absolute; right: -10px; bottom: -6px; min-width: 26px; height: 26px; padding: 0 5px; border-radius: 13px;
+      background: #1e293b; color: #fff; border: 2px solid #fff; font-size: .85rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .seat-count.low { background: #dc2626; }
+    .minis { display: flex; height: 26px; }
+    .mini-back {
+      width: 17px; height: 25px; border-radius: 3px; background: #2b3a67; border: 1.5px solid #e2e8f0; margin-left: -9px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+    .mini-back:first-child { margin-left: 0; }
+    .bubble {
+      position: absolute; left: 50%; top: -8px; transform: translate(-50%, -100%); background: #fff; color: #1f2937;
+      padding: 4px 12px; border-radius: 14px; font-weight: 900; font-size: 1rem; white-space: nowrap;
+      box-shadow: 0 3px 8px rgba(0,0,0,.35); animation: bubblePop .9s ease forwards; pointer-events: none; z-index: 6;
+    }
+    #seat-top .bubble { top: auto; bottom: -34px; transform: translate(-50%, 0); }
+    @keyframes bubblePop {
+      0% { opacity: 0; scale: .5; } 15% { opacity: 1; scale: 1.1; } 25% { scale: 1; } 80% { opacity: 1; } 100% { opacity: 0; }
+    }
+
+    .center {
+      position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 1; width: 80%;
+      --card-w: 74px; --card-h: 105px;
+    }
+    .table-label {
+      background: rgba(0,0,0,.45); color: #fff; padding: 4px 14px; border-radius: 16px; font-size: 1rem; font-weight: 700;
+      min-height: 30px; text-align: center;
+    }
+    .table-label b { color: #fde68a; font-size: 1.08rem; }
+    .table-cards { display: flex; justify-content: center; min-height: var(--card-h); transition: opacity .4s; }
+    .table-cards.fade { opacity: 0; }
+    .table-cards .card-view { margin-left: calc(var(--card-w) * -0.38); cursor: default; }
+    .table-cards .card-view:first-child { margin-left: 0; }
+    .table-cards.from-bottom .card-view { animation: inBottom .34s cubic-bezier(.2,.8,.2,1) backwards; }
+    .table-cards.from-top .card-view { animation: inTop .34s cubic-bezier(.2,.8,.2,1) backwards; }
+    .table-cards.from-left .card-view { animation: inLeft .34s cubic-bezier(.2,.8,.2,1) backwards; }
+    .table-cards.from-right .card-view { animation: inRight .34s cubic-bezier(.2,.8,.2,1) backwards; }
+    @keyframes inBottom { from { transform: translateY(170px) scale(1.15); opacity: .2; } }
+    @keyframes inTop { from { transform: translateY(-170px) scale(.6); opacity: .2; } }
+    @keyframes inLeft { from { transform: translateX(-260px) scale(.6); opacity: .2; } }
+    @keyframes inRight { from { transform: translateX(260px) scale(.6); opacity: .2; } }
+    .table-cards.bomb .card-view .card-front { box-shadow: 0 0 0 3px #fde047, 0 0 22px 8px rgba(253,224,71,.8); }
+    .free-mark {
+      height: var(--card-h); width: calc(var(--card-w) * 2.4); border: 3px dashed rgba(255,255,255,.45); border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.75); font-weight: 800; font-size: 1rem;
+    }
+    .flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 55%, rgba(253,224,71,.75), transparent 60%);
+      pointer-events: none; animation: flashOut .7s ease forwards; z-index: 3; }
+    @keyframes flashOut { from { opacity: 1; } to { opacity: 0; } }
+
+    /* ---------- 牌 ---------- */
+    .card-view {
+      width: var(--card-w); height: var(--card-h); border-radius: var(--card-radius); position: relative; flex-shrink: 0;
+      user-select: none; -webkit-user-select: none; cursor: pointer;
+      transition: transform .18s cubic-bezier(.2,.8,.2,1);
+    }
+    .card-front, .card-back {
+      position: absolute; inset: 0; border-radius: var(--card-radius); box-shadow: 0 3px 9px rgba(0,0,0,.3); overflow: hidden;
+    }
+    .card-front { background: #fff; border: 1px solid #cbd5e1; }
+    .card-front.color-red { color: #c62828; }
+    .card-front.color-black { color: #1f2328; }
+    .card-corner { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1; pointer-events: none; z-index: 2; }
+    .corner-tl { top: 4px; left: 5px; }
+    .corner-br { bottom: 4px; right: 5px; transform: rotate(180deg); }
+    .card-label { font-size: calc(var(--card-w) * .25); font-weight: 900; letter-spacing: -1px; }
+    .card-suit-sym { font-size: calc(var(--card-w) * .24); margin-top: 1px; }
+    .card-center {
+      position: absolute; top: 55%; left: 56%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center;
+      pointer-events: none; z-index: 1;
+    }
+    .mascot-svg { width: calc(var(--card-w) * .5); height: calc(var(--card-w) * .5); display: block; position: relative; }
+    .center-watermark { position: absolute; font-size: calc(var(--card-w) * .7); opacity: .12; line-height: 1; }
+    .card-back { background: #2b3a67; border: 1.5px solid #e2e8f0; display: flex; align-items: center; justify-content: center; }
+    .card-back-frame {
+      width: calc(100% - 10px); height: calc(100% - 10px); border: 2px solid rgba(255,255,255,.85); border-radius: calc(var(--card-radius) - 2px);
+      display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #3a4d85, #202b4d);
+    }
+    .card-back-paw { font-size: calc(var(--card-w) * .44); }
+
+    /* ---------- 玩家區 ---------- */
+    .player { background: linear-gradient(#173d30, #102a21); padding: 6px 10px 6px; position: relative; z-index: 4; box-shadow: 0 -3px 10px rgba(0,0,0,.35); }
+    .player.active { box-shadow: 0 -3px 0 var(--accent), 0 -10px 24px rgba(245,158,11,.35); }
+    .status {
+      min-height: 30px; padding: 4px 12px; border-radius: 10px; background: rgba(255,255,255,.1); color: #fff; font-weight: 700;
+      font-size: 1rem; text-align: center;
+    }
+    .status.good { background: #166534; }
+    .status.bad { background: #7f1d1d; }
+    .row { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+    .chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: #cbd5e1; font-size: .85rem; flex: 1; min-width: 0; }
+    .chip {
+      white-space: nowrap; height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid #5b7f71; background: #204a3b; color: #fff; font-family: inherit;
+      font-size: .85rem; font-weight: 700; cursor: pointer;
+    }
+    .chip:active { transform: scale(.95); }
+    .actions { display: flex; gap: 8px; margin-left: auto; }
+    .btn.big { height: 44px; min-width: 76px; font-size: 1.05rem; }
+    .btn.pulse { animation: pulse 1s ease infinite; }
+    @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(245,158,11,.5); } }
+    .hand-wrap { margin-top: 2px; padding: 26px 12px 4px; overflow-x: auto; overflow-y: hidden; display: flex; }
+    .hand { display: flex; margin: 0 auto; }
+    .hand .card-view.selected { transform: translateY(-22px); }
+    .hand .card-view.selected .card-front { box-shadow: 0 0 0 3px var(--accent), 0 8px 14px rgba(0,0,0,.4); }
+    .hand .card-view.deal { animation: dealIn .4s cubic-bezier(.2,.8,.2,1) backwards; }
+    @keyframes dealIn { from { transform: translateY(-200px) rotate(-12deg); opacity: 0; } }
+    #bubble-bottom { position: absolute; left: 50%; top: 0; width: 0; height: 0; }
+
+    /* ---------- 提示訊息與對話框 ---------- */
+    .toast {
+      position: fixed; left: 50%; top: 64px; transform: translate(-50%, -12px); background: rgba(17,24,39,.92); color: #fff;
+      padding: 8px 18px; border-radius: 20px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
+      z-index: 30; max-width: 90vw; text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 40; padding: 12px;
+    }
+    .overlay.show { display: flex; }
+    .dialog {
+      background: #fff; border-radius: 16px; width: min(560px, 100%); max-height: 92%; display: flex; flex-direction: column;
+      box-shadow: 0 20px 50px rgba(0,0,0,.5); animation: dialogIn .2s ease;
+    }
+    @keyframes dialogIn { from { transform: scale(.92); } }
+    .dialog-title { padding: 12px 16px; font-size: 1.15rem; font-weight: 900; border-bottom: 1px solid #e5e7eb; }
+    .dialog-body { padding: 12px 16px; overflow-y: auto; line-height: 1.6; font-size: .98rem; }
+    .dialog-buttons { padding: 10px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #e5e7eb; flex-wrap: wrap; }
+    .dialog-buttons .btn { background: #e5e7eb; color: #111827; border-color: #d1d5db; }
+    .dialog-buttons .btn.primary { background: var(--accent); border-color: #d97706; }
+    .mini-cards { display: flex; --card-w: 46px; --card-h: 66px; --card-radius: 6px; margin: 4px 0 2px; }
+    .mini-cards .card-view { margin-left: -14px; cursor: default; }
+    .mini-cards .card-view:first-child { margin-left: 0; }
+    .mini-cards .corner-br { display: none; }
+    .guide-type { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px dashed #e5e7eb; flex-wrap: wrap; }
+    .guide-type h4 { margin: 0; font-size: 1.05rem; }
+    .guide-type p { margin: 0; font-size: .92rem; color: #374151; }
+    .guide-text { flex: 1; min-width: 180px; }
+    .order-line { background: #fef3c7; border-radius: 10px; padding: 6px 10px; margin: 6px 0; font-weight: 700; }
+    .rank-list { list-style: none; padding: 0; margin: 0; }
+    .rank-list li { display: flex; gap: 10px; padding: 6px 4px; border-bottom: 1px solid #f1f5f9; align-items: center; }
+    .rank-list .place { font-weight: 900; width: 2.2em; }
+    .rank-list .me { color: #b45309; font-weight: 900; }
+    .log-round { margin: 0 0 8px; }
+    .log-round b { color: #166534; }
+    .set-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 1rem; }
+    .set-row input { width: 22px; height: 22px; }
+    .preview-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+
+    @media (max-width: 700px) {
+      :root { --card-w: 62px; --card-h: 88px; --card-radius: 7px; }
+      .brand { font-size: 1.05rem; }
+      .btn { height: 32px; padding: 0 8px; font-size: .8rem; }
+      .btn.big { height: 40px; min-width: 64px; font-size: .95rem; }
+      .avatar { width: 44px; height: 44px; font-size: 26px; }
+      #seat-left { left: 4px; top: 34%; } #seat-right { right: 4px; top: 34%; }
+      #seat-left .minis, #seat-right .minis { display: none; }
+      .center { --card-w: 56px; --card-h: 80px; top: 60%; width: 96%; }
+      .table-label { font-size: .85rem; }
+      .status { font-size: .88rem; }
+      .felt { left: 1%; right: 1%; }
+      .header-bar { gap: 6px; padding: 5px 8px; }
+      .controls { gap: 5px; }
+      .ctrl-label { font-size: 0; }
+      select.ctrl { height: 32px; font-size: .8rem; }
+      .chips { flex-basis: 100%; }
+      .chip { height: 28px; padding: 0 8px; white-space: nowrap; }
+      .actions { margin-left: 0; width: 100%; gap: 6px; }
+      .actions .btn { flex: 1; min-width: 0; padding: 0 4px; }
+      .toast { top: 100px; }
+    }
+    @media (max-height: 620px) and (min-width: 701px) {
+      :root { --card-w: 70px; --card-h: 100px; }
+      .center { --card-w: 62px; --card-h: 88px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header-bar">
+      <div class="brand">🃏 牌型大師</div>
+      <div class="controls">
+        <label class="ctrl-label">人數
+          <select id="selPlayers" class="ctrl"><option value="4">4 人</option><option value="3">3 人</option></select>
+        </label>
+        <label class="ctrl-label">難度
+          <select id="selDifficulty" class="ctrl"><option value="easy">簡單</option><option value="normal">普通</option><option value="hard">困難</option></select>
+        </label>
+        <button id="btnNew" class="btn primary">🔄 重新開始</button>
+        <button id="btnGuide" class="btn">📖 牌型圖鑑</button>
+        <button id="btnLog" class="btn">📝 紀錄</button>
+        <button id="btnSettings" class="btn">⚙️ 設定</button>
+      </div>
+    </header>
+
+    <main class="table" id="table">
+      <div class="felt"></div>
+      <div class="seat" id="seat-top"><div class="avatar"><span class="emoji"></span><span class="seat-count"></span></div><div class="seat-name"></div><div class="minis"></div></div>
+      <div class="seat" id="seat-left"><div class="avatar"><span class="emoji"></span><span class="seat-count"></span></div><div class="seat-name"></div><div class="minis"></div></div>
+      <div class="seat" id="seat-right"><div class="avatar"><span class="emoji"></span><span class="seat-count"></span></div><div class="seat-name"></div><div class="minis"></div></div>
+      <div class="center">
+        <div class="table-label" id="tableLabel"></div>
+        <div class="table-cards" id="tableCards"></div>
+      </div>
+    </main>
+
+    <section class="player" id="player">
+      <div id="bubble-bottom"></div>
+      <div class="status" id="status">載入中…</div>
+      <div class="row">
+        <div class="chips" id="chips"></div>
+        <div class="actions">
+          <button id="btnSort" class="btn big">排列</button>
+          <button id="btnHint" class="btn big">💡 提示</button>
+          <button id="btnPass" class="btn big">過</button>
+          <button id="btnPlay" class="btn big primary">出牌</button>
+        </div>
+      </div>
+      <div class="hand-wrap" id="handWrap"><div class="hand" id="hand"></div></div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="overlay" id="overlay">
+    <div class="dialog">
+      <div class="dialog-title" id="dialogTitle"></div>
+      <div class="dialog-body" id="dialogBody"></div>
+      <div class="dialog-buttons" id="dialogButtons"></div>
+    </div>
+  </div>
+
+  <script async src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="pm-core.js"></script>
+  <script src="pm-cards.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const $ = id => document.getElementById(id);
+    if (typeof pmApply !== 'function' || typeof pmRenderCard !== 'function') {
+      $('status').textContent = '遊戲檔案沒有載入成功，請重新整理網頁。';
+      return;
+    }
+
+    // ---------- 設定 ----------
+    const DEFAULTS = { players: 4, difficulty: 'normal', sort: 'rank', hint: true, groups: true, explain: true, sound: true };
+    function loadJSON(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return v && typeof v === 'object' ? v : fallback; } catch (e) { return fallback; }
+    }
+    function saveJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+    const settings = Object.assign({}, DEFAULTS, loadJSON('pm-settings', {}));
+    const seenTypes = loadJSON('pm-seen-types', {});
+    function saveSettings() { saveJSON('pm-settings', settings); }
+
+    // ---------- 狀態 ----------
+    // state 是唯一的真相；畫面只在 dispatch 播放事件時暫時走在前面，最後一律 renderAll() 對齊。
+    let state = null;
+    let gameEpoch = 0;          // 重新開始時 +1，讓舊的動畫與電腦回合失效
+    let isAnimating = false;
+    let computerTimer = null;
+    let viewHand = [];          // 目前畫面上的手牌（播放事件時會先扣掉剛出的牌）
+    const selected = new Set();
+    let hintIdx = -1;
+    const chipIdx = {};
+
+    const OPP = [null, { emoji: '🐱' }, { emoji: '🐸' }, { emoji: '🦉' }];
+    let speed = 1;             // 驗收時可以調快（pmDebug.speed = 0.05）
+    const sleep = ms => new Promise(r => setTimeout(r, ms * speed));
+
+    function seatOf(p) {
+      const n = state.players.length;
+      return (n === 4 ? ['bottom', 'right', 'top', 'left'] : ['bottom', 'right', 'left'])[p];   // 逆時針
+    }
+    function nameOf(p) { return state.players[p].name; }
+
+    // ---------- 對話框與提示 ----------
+    let dialogResolve = null;
+    function showDialog(title, content, buttons) {
+      closeDialog();
+      $('dialogTitle').textContent = title;
+      const body = $('dialogBody');
+      body.innerHTML = '';
+      if (typeof content === 'string') body.innerHTML = content; else body.appendChild(content);
+      const box = $('dialogButtons');
+      box.innerHTML = '';
+      (buttons && buttons.length ? buttons : [{ label: '知道了', primary: true }]).forEach(b => {
+        const el = document.createElement('button');
+        el.className = 'btn' + (b.primary ? ' primary' : '');
+        el.textContent = b.label;
+        el.addEventListener('click', () => { closeDialog(); if (b.onClick) b.onClick(); });
+        box.appendChild(el);
+      });
+      $('overlay').classList.add('show');
+      body.scrollTop = 0;
+      return new Promise(resolve => { dialogResolve = resolve; });
+    }
+    function closeDialog() {
+      $('overlay').classList.remove('show');
+      if (dialogResolve) { const r = dialogResolve; dialogResolve = null; r(); }
+    }
+    let toastTimer = null;
+    function showToast(text, ms) {
+      const t = $('toast');
+      t.textContent = text;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), ms || 2200);
+    }
+
+    // ---------- 音效 ----------
+    let audioCtx = null;
+    function tone(freq, start, dur, type, vol, endFreq) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = type || 'triangle';
+      o.frequency.setValueAtTime(freq, start);
+      if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, start + dur);
+      g.gain.setValueAtTime(vol || 0.16, start);
+      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      o.start(start); o.stop(start + dur);
+    }
+    function playSound(kind) {
+      if (!settings.sound) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+        if (kind === 'select') tone(660, now, 0.05, 'sine', 0.08);
+        else if (kind === 'play') tone(440, now, 0.1, 'triangle', 0.16, 820);
+        else if (kind === 'pass') tone(300, now, 0.12, 'sine', 0.12, 220);
+        else if (kind === 'clear') tone(520, now, 0.14, 'sine', 0.12, 700);
+        else if (kind === 'bomb') { tone(180, now, 0.3, 'sawtooth', 0.2, 60); tone(880, now + 0.05, 0.25, 'square', 0.08, 1400); }
+        else if (kind === 'win') [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, now + i * 0.1, 0.24, 'triangle', 0.18));
+        else if (kind === 'lose') [392, 330, 262].forEach((f, i) => tone(f, now + i * 0.14, 0.22, 'sine', 0.14));
+      } catch (e) {}
+    }
+
+    // ---------- 畫面：對手 ----------
+    function seatEl(seat) { return $('seat-' + seat); }
+    function renderOppCount(p, count) {
+      const el = seatEl(seatOf(p));
+      const badge = el.querySelector('.seat-count');
+      badge.textContent = count;
+      badge.classList.toggle('low', count <= 2);
+      const minis = el.querySelector('.minis');
+      minis.innerHTML = '';
+      for (let i = 0; i < Math.min(count, 10); i++) minis.appendChild(Object.assign(document.createElement('div'), { className: 'mini-back' }));
+    }
+    function renderSeats() {
+      ['top', 'left', 'right'].forEach(seat => seatEl(seat).classList.remove('show'));
+      for (let p = 1; p < state.players.length; p++) {
+        const el = seatEl(seatOf(p));
+        el.classList.add('show');
+        el.querySelector('.emoji').textContent = OPP[p].emoji;
+        el.querySelector('.seat-name').textContent = nameOf(p);
+        renderOppCount(p, state.players[p].hand.length);
+      }
+    }
+    function setActive(p) {
+      ['top', 'left', 'right'].forEach(seat => seatEl(seat).classList.remove('active'));
+      $('player').classList.remove('active');
+      if (p == null) return;
+      if (p === 0) $('player').classList.add('active'); else seatEl(seatOf(p)).classList.add('active');
+    }
+    function showBubble(p, text) {
+      const host = p === 0 ? $('bubble-bottom') : seatEl(seatOf(p)).querySelector('.avatar');
+      const b = document.createElement('div');
+      b.className = 'bubble';
+      b.textContent = text;
+      host.appendChild(b);
+      setTimeout(() => b.remove(), 950);
+    }
+
+    // ---------- 畫面：桌面 ----------
+    // 葫蘆、鐵支把「多的那組」排前面，比較好認
+    function displayOrder(cards) {
+      const cnt = {};
+      cards.forEach(c => { cnt[c.rank] = (cnt[c.rank] || 0) + 1; });
+      return cards.slice().sort((a, b) => (cnt[b.rank] - cnt[a.rank]) || (pmPower(a) - pmPower(b)));
+    }
+    function renderTable(table, animate) {
+      const label = $('tableLabel'), box = $('tableCards');
+      box.className = 'table-cards';
+      box.innerHTML = '';
+      if (!table) {
+        if (state.phase === 'over') { label.textContent = '這一局結束了'; return; }
+        const who = state.turn === 0 ? '你' : nameOf(state.turn);
+        label.innerHTML = who + ' <b>自由出牌</b>';
+        const mark = document.createElement('div');
+        mark.className = 'free-mark';
+        mark.textContent = state.firstMove ? '第一手要有梅花 3' : '出什麼牌型都可以';
+        box.appendChild(mark);
+        return;
+      }
+      label.innerHTML = nameOf(table.player) + ' 出了 <b>' + table.text + '</b>';
+      displayOrder(table.cards).forEach((c, i) => {
+        const el = pmRenderCard(c, true);
+        el.style.animationDelay = (i * 40) + 'ms';
+        box.appendChild(el);
+      });
+      if (animate) box.classList.add('from-' + seatOf(table.player));
+      if (PM_TYPES[table.type].bomb) box.classList.add('bomb');
+    }
+    function flash() {
+      const f = document.createElement('div');
+      f.className = 'flash';
+      $('table').appendChild(f);
+      setTimeout(() => f.remove(), 750);
+    }
+
+    // ---------- 畫面：手牌 ----------
+    function layoutHand() {
+      const wrap = $('handWrap'), hand = $('hand');
+      const n = hand.children.length;
+      if (!n) return;
+      const cardW = hand.children[0].offsetWidth;
+      const avail = wrap.clientWidth - 28;
+      let step = n > 1 ? Math.min(cardW * 0.58, (avail - cardW) / (n - 1)) : cardW;
+      if (step < 22) step = 30;                       // 太擠就改成左右滑動
+      for (let i = 0; i < n; i++) hand.children[i].style.marginLeft = i === 0 ? '0' : (step - cardW) + 'px';
+    }
+    function renderHand(deal) {
+      const hand = $('hand');
+      hand.innerHTML = '';
+      pmSortHand(viewHand, settings.sort).forEach((c, i) => {
+        const el = pmRenderCard(c, true);
+        if (selected.has(c.id)) el.classList.add('selected');
+        if (deal) { el.classList.add('deal'); el.style.animationDelay = (i * 35) + 'ms'; }
+        el.addEventListener('click', () => onCardClick(c.id));
+        hand.appendChild(el);
+      });
+      layoutHand();
+    }
+    function setSelection(ids) {
+      selected.clear();
+      ids.forEach(id => selected.add(id));
+      $('hand').querySelectorAll('.card-view').forEach(el => {
+        el.classList.toggle('selected', selected.has(Number(el.dataset.cardId)));
+      });
+      updateStatus();
+    }
+    function onCardClick(id) {
+      if (!state || state.phase === 'over') return;
+      const ids = new Set(selected);
+      if (ids.has(id)) ids.delete(id); else ids.add(id);
+      hintIdx = -1;
+      playSound('select');
+      setSelection(Array.from(ids));
+    }
+
+    // ---------- 畫面：我能組什麼 ----------
+    function renderChips() {
+      const box = $('chips');
+      box.innerHTML = '';
+      if (!settings.groups || !state || state.phase === 'over') return;
+      const groups = pmGroups(viewHand);
+      const types = ['pair', 'straight', 'fullhouse', 'four', 'sflush'].filter(t => groups[t].length);
+      const lead = document.createElement('span');
+      lead.textContent = types.length ? '我能組：' : '我能組：目前只有單張';
+      box.appendChild(lead);
+      types.forEach(t => {
+        const el = document.createElement('button');
+        el.className = 'chip';
+        el.textContent = PM_TYPES[t].name + ' ×' + groups[t].length;
+        el.addEventListener('click', () => {
+          const list = pmGroups(viewHand)[t];
+          if (!list.length) return;
+          chipIdx[t] = ((chipIdx[t] == null ? -1 : chipIdx[t]) + 1) % list.length;
+          hintIdx = -1;
+          playSound('select');
+          setSelection(list[chipIdx[t]].cards.map(c => c.id));
+        });
+        box.appendChild(el);
+      });
+    }
+
+    // ---------- 畫面：狀態列與按鈕 ----------
+    function updateStatus() {
+      const st = $('status');
+      st.className = 'status';
+      const myTurn = state && state.phase === 'play' && state.turn === 0 && !isAnimating;
+      const btnPlay = $('btnPlay'), btnPass = $('btnPass'), btnHint = $('btnHint');
+      btnPlay.disabled = true;
+      btnPass.disabled = !(myTurn && pmCanPass(state));
+      btnPass.classList.remove('pulse');
+      btnHint.style.display = settings.hint ? '' : 'none';
+      btnHint.disabled = !myTurn;
+      $('btnSort').textContent = settings.sort === 'rank' ? '排列：數字' : '排列：花色';
+      if (!state) return;
+      if (state.phase === 'over') { st.textContent = (state.winner === 0 ? '你' : nameOf(state.winner)) + '贏了！按「重新開始」再玩一局'; return; }
+      if (state.turn !== 0) { st.textContent = '等 ' + nameOf(state.turn) + ' 出牌…'; return; }
+      if (isAnimating) { st.textContent = '…'; return; }
+
+      if (selected.size === 0) {
+        if (!state.table) {
+          st.textContent = state.firstMove ? '你有梅花 3，由你先出！第一手要包含梅花 3' : '輪到你自由出牌：出什麼牌型都可以';
+        } else if (pmLegalPlays(state).length === 0) {
+          st.textContent = '桌上是「' + state.table.text + '」，你沒有更大的牌，按「過」';
+          btnPass.classList.add('pulse');
+        } else {
+          st.textContent = '輪到你了！桌上是「' + state.table.text + '」，選牌來壓它，或按「過」';
+        }
+        return;
+      }
+      const chk = pmCheckPlay(state, Array.from(selected), 0);
+      if (chk.ok) {
+        st.textContent = '✔ ' + chk.combo.text + (state.table ? '，可以壓過桌上的牌' : '，可以出');
+        st.classList.add('good');
+        btnPlay.disabled = false;
+      } else {
+        st.textContent = '✘ ' + (chk.combo ? chk.combo.text + '：' : '') + chk.message;
+        st.classList.add('bad');
+      }
+    }
+
+    function renderAll(deal) {
+      viewHand = state.players[0].hand.slice();
+      const mine = new Set(viewHand.map(c => c.id));
+      Array.from(selected).forEach(id => { if (!mine.has(id)) selected.delete(id); });
+      hintIdx = -1;
+      renderSeats();
+      renderTable(state.table, false);
+      renderHand(deal);
+      renderChips();
+      setActive(state.phase === 'play' ? state.turn : null);
+      updateStatus();
+    }
+
+    // ---------- 事件播放 ----------
+    const EXPLAIN = {
+      pair: 'S8 C8', straight: 'S3 H4 D5 C6 S7', fullhouse: 'S7 H7 D7 C4 S4', four: 'S5 H5 D5 C5 S9', sflush: 'H3 H4 H5 H6 H7'
+    };
+    function sampleCards(str) {
+      const box = document.createElement('div');
+      box.className = 'mini-cards';
+      const SI = { S: 0, H: 1, D: 2, C: 3 }, RK = { A: 1, J: 11, Q: 12, K: 13 };
+      str.split(' ').forEach(code => {
+        const rank = RK[code.slice(1)] || parseInt(code.slice(1), 10);
+        box.appendChild(pmRenderCard({ id: SI[code[0]] * 13 + rank - 1, suit: code[0], rank: rank }, true));
+      });
+      return box;
+    }
+    async function maybeExplain(type) {
+      if (!settings.explain || !EXPLAIN[type] || seenTypes[type]) return;
+      seenTypes[type] = 1;
+      saveJSON('pm-seen-types', seenTypes);
+      const body = document.createElement('div');
+      body.appendChild(sampleCards(EXPLAIN[type]));
+      const p = document.createElement('p');
+      p.textContent = PM_TYPES[type].desc;
+      body.appendChild(p);
+      await showDialog('新牌型：' + PM_TYPES[type].name, body, [{ label: '知道了', primary: true }]);
+    }
+
+    async function playEvent(e) {
+      switch (e.type) {
+        case 'turn':
+          setActive(e.player);
+          break;
+        case 'play': {
+          if (e.player === 0) {
+            const ids = new Set(e.cards.map(c => c.id));
+            viewHand = viewHand.filter(c => !ids.has(c.id));
+            selected.clear();
+            renderHand(false);
+            renderChips();
+          } else {
+            renderOppCount(e.player, e.left);
+          }
+          renderTable({ player: e.player, type: e.comboType, text: e.text, cards: e.cards }, true);
+          if (e.bomb) { flash(); playSound('bomb'); } else playSound('play');
+          await sleep(e.player === 0 ? 420 : 800);
+          if (e.left === 1) showToast((e.player === 0 ? '你' : nameOf(e.player)) + '只剩 1 張牌了！');
+          await maybeExplain(e.comboType);
+          break;
+        }
+        case 'pass':
+          showBubble(e.player, '過');
+          playSound('pass');
+          await sleep(560);
+          break;
+        case 'clear':
+          $('tableLabel').innerHTML = '大家都過了，' + (e.player === 0 ? '你' : nameOf(e.player)) + ' <b>自由出牌</b>';
+          $('tableCards').classList.add('fade');
+          playSound('clear');
+          await sleep(650);
+          break;
+        case 'win':
+          await sleep(350);
+          break;
+      }
+    }
+
+    async function dispatch(result) {
+      if (!result.ok) { showToast(result.message || '現在不能這樣做喔'); return false; }
+      const epoch = gameEpoch;
+      isAnimating = true;
+      updateStatus();
+      for (const e of result.events) {
+        await playEvent(e);
+        if (epoch !== gameEpoch) return false;
+      }
+      state = result.state;
+      isAnimating = false;
+      renderAll(false);
+      if (state.phase === 'over') showResult(); else scheduleComputerTurn();
+      return true;
+    }
+
+    function scheduleComputerTurn() {
+      clearTimeout(computerTimer);
+      if (!state || state.phase !== 'play' || state.turn === 0) return;
+      const epoch = gameEpoch;
+      computerTimer = setTimeout(() => {
+        if (epoch !== gameEpoch || isAnimating || state.phase !== 'play' || state.turn === 0) return;
+        dispatch(pmApply(state, pmChooseAction(state)));
+      }, 650 * speed);
+    }
+
+    // ---------- 玩家動作 ----------
+    function humanReady() { return state && state.phase === 'play' && state.turn === 0 && !isAnimating; }
+    function onPlay() {
+      if (!humanReady() || !selected.size) return;
+      dispatch(pmApply(state, { type: 'play', cardIds: Array.from(selected) }));
+    }
+    function onPass() {
+      if (!humanReady()) return;
+      selected.clear();
+      $('hand').querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+      dispatch(pmApply(state, { type: 'pass' }));
+    }
+    function onHint() {
+      if (!humanReady()) return;
+      const legal = pmLegalPlays(state);
+      if (!legal.length) { showToast('沒有更大的牌，只能按「過」'); $('btnPass').classList.add('pulse'); return; }
+      hintIdx = (hintIdx + 1) % legal.length;
+      const keep = hintIdx;
+      playSound('select');
+      setSelection(legal[hintIdx].cards.map(c => c.id));
+      hintIdx = keep;
+    }
+    function onSort() {
+      settings.sort = settings.sort === 'rank' ? 'suit' : 'rank';
+      saveSettings();
+      renderHand(false);
+      updateStatus();
+    }
+
+    // ---------- 結果 ----------
+    function showResult() {
+      const win = state.winner === 0;
+      let streak = loadJSON('pm-streak', { n: 0 }).n || 0;
+      streak = win ? streak + 1 : 0;
+      saveJSON('pm-streak', { n: streak });
+      playSound(win ? 'win' : 'lose');
+      if (win && typeof confetti === 'function') { try { confetti({ particleCount: 140, spread: 80, origin: { y: 0.7 } }); } catch (e) {} }
+      let html = '<ul class="rank-list">';
+      state.ranking.forEach((r, i) => {
+        const me = r.player === 0;
+        html += '<li class="' + (me ? 'me' : '') + '"><span class="place">' + (i === 0 ? '🏆' : '第 ' + (i + 1)) + '</span><span>' +
+          (me ? '你' : OPP[r.player].emoji + ' ' + nameOf(r.player)) + '</span><span style="margin-left:auto">' +
+          (r.left === 0 ? '出完了！' : '剩 ' + r.left + ' 張') + '</span></li>';
+      });
+      html += '</ul>';
+      if (win) html += '<p class="order-line">目前連勝 ' + streak + ' 局！</p>';
+      showDialog(win ? '🎉 你贏了！' : nameOf(state.winner) + ' 先出完了', html,
+        [{ label: '看看牌桌' }, { label: '再玩一局', primary: true, onClick: newGame }]);
+    }
+
+    // ---------- 開局 ----------
+    function newGame() {
+      gameEpoch++;
+      clearTimeout(computerTimer);
+      closeDialog();
+      isAnimating = false;
+      selected.clear();
+      document.querySelectorAll('.bubble, .flash').forEach(el => el.remove());
+      const g = pmCreateGame({ playerCount: settings.players, difficulty: settings.difficulty });
+      state = g.state;
+      renderAll(true);
+      const first = state.turn === 0 ? '你有梅花 3，由你先出！' : nameOf(state.turn) + ' 有梅花 3，先出牌';
+      showToast(state.players.length === 3 ? '三人局：有梅花 3 的人多拿一張。' + first : first, 2800);
+      scheduleComputerTurn();
+    }
+    function gameInProgress() { return state && state.phase === 'play' && state.played.length > 0; }
+    function askNewGame(onCancel) {
+      if (!gameInProgress()) { newGame(); return; }
+      showDialog('重新開始？', '這一局還沒結束，確定要重新發牌嗎？',
+        [{ label: '繼續玩', onClick: onCancel }, { label: '重新開始', primary: true, onClick: newGame }]);
+    }
+
+    // ---------- 牌型圖鑑、紀錄、設定 ----------
+    function showGuide() {
+      const body = document.createElement('div');
+      body.innerHTML =
+        '<div class="order-line">數字大小：2 ＞ A ＞ K ＞ Q ＞ J ＞ 10 ＞ 9 ＞ 8 ＞ 7 ＞ 6 ＞ 5 ＞ 4 ＞ 3</div>' +
+        '<div class="order-line">數字一樣比花色：♠ 黑桃 ＞ <span style="color:#c62828">♥ 紅心</span> ＞ <span style="color:#c62828">♦ 方塊</span> ＞ ♣ 梅花</div>';
+      const samples = Object.assign({ single: 'S2' }, EXPLAIN);
+      PM_TYPE_ORDER.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'guide-type';
+        row.appendChild(sampleCards(samples[t]));
+        const text = document.createElement('div');
+        text.className = 'guide-text';
+        text.innerHTML = '<h4>' + PM_TYPES[t].name + '（' + PM_TYPES[t].count + ' 張）</h4><p>' + PM_TYPES[t].desc + '</p>';
+        row.appendChild(text);
+        body.appendChild(row);
+      });
+      const more = document.createElement('div');
+      more.innerHTML =
+        '<div class="order-line">五張牌型：同花順 ＞ 鐵支 ＞ 葫蘆 ＞ 順子</div>' +
+        '<p><b>順子</b>有 9 組：2-3-4-5-6、3-4-5-6-7 … 10-J-Q-K-A。因為 2 最大，所以 2-3-4-5-6 是最大的順子。A-2-3-4-5 和 J-Q-K-A-2 不算順子。</p>' +
+        '<p><b>怎麼玩</b>：有梅花 3 的人先出，第一手要包含梅花 3。之後逆時針輪流，要出「張數一樣、而且更大」的牌，不想出就按「過」。' +
+        '「過」只是這一次不出，下次輪到還可以出。其他人都過了，最後出牌的人就可以自由出牌。最先把手牌出完的人獲勝！</p>' +
+        '<p><b>王牌牌型</b>：鐵支和同花順可以壓任何牌，連單張和一對都能壓。</p>';
+      body.appendChild(more);
+      showDialog('📖 牌型圖鑑', body, [{ label: '關閉', primary: true }]);
+    }
+    function showLog() {
+      if (!state || !state.log.length) { showDialog('📝 出牌紀錄', '還沒有人出牌。'); return; }
+      const rounds = {};
+      state.log.forEach(l => { (rounds[l.round] = rounds[l.round] || []).push(l); });
+      let html = '';
+      Object.keys(rounds).map(Number).sort((a, b) => b - a).forEach(r => {
+        html += '<p class="log-round"><b>第 ' + r + ' 輪</b>：' + rounds[r].map(l =>
+          (l.player === 0 ? '你' : nameOf(l.player)) + (l.pass ? ' 過' : ' ' + l.text)).join(' → ') + '</p>';
+      });
+      showDialog('📝 出牌紀錄（新的在上面）', html, [{ label: '關閉', primary: true }]);
+    }
+    function showSettings() {
+      const items = [['hint', '顯示「提示」按鈕'], ['groups', '顯示「我能組」的牌型標籤'], ['explain', '新牌型第一次出現時說明'], ['sound', '音效']];
+      const body = document.createElement('div');
+      items.forEach(([key, label]) => {
+        const row = document.createElement('label');
+        row.className = 'set-row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!settings[key];
+        cb.addEventListener('change', () => {
+          settings[key] = cb.checked;
+          saveSettings();
+          if (state) { renderChips(); updateStatus(); }
+        });
+        row.appendChild(cb);
+        row.appendChild(document.createTextNode(label));
+        body.appendChild(row);
+      });
+      const reset = document.createElement('button');
+      reset.className = 'btn';
+      reset.style.cssText = 'background:#e5e7eb;color:#111827;border-color:#d1d5db;margin-top:6px';
+      reset.textContent = '重新看一次所有牌型說明';
+      reset.addEventListener('click', () => {
+        Object.keys(seenTypes).forEach(k => delete seenTypes[k]);
+        saveJSON('pm-seen-types', seenTypes);
+        showToast('好了，牌型出現時會再說明一次');
+      });
+      body.appendChild(reset);
+      showDialog('⚙️ 設定', body, [{ label: '關閉', primary: true }]);
+    }
+
+    // ?preview=1：把整副牌攤開來看（改牌面圖案時用）
+    function showPreview() {
+      const body = document.createElement('div');
+      PM_SUITS.forEach(s => {
+        const grid = document.createElement('div');
+        grid.className = 'preview-grid';
+        pmSortHand(pmCreateDeck().filter(c => c.suit === s.id), 'rank').forEach(c => grid.appendChild(pmRenderCard(c, true)));
+        body.appendChild(grid);
+      });
+      const grid = document.createElement('div');
+      grid.className = 'preview-grid';
+      grid.appendChild(pmRenderCard(null, false));
+      body.appendChild(grid);
+      document.querySelector('.dialog').style.width = 'min(1100px, 100%)';
+      showDialog('整副牌預覽', body, [{ label: '關閉', primary: true }]);
+    }
+
+    // ---------- 啟動 ----------
+    $('selPlayers').value = String(settings.players);
+    $('selDifficulty').value = settings.difficulty;
+    $('selPlayers').addEventListener('change', e => {
+      const old = settings.players;
+      const apply = () => { settings.players = Number(e.target.value); saveSettings(); };
+      if (!gameInProgress()) { apply(); newGame(); return; }
+      showDialog('換人數？', '換人數會重新發牌，確定嗎？', [
+        { label: '繼續玩', onClick: () => { e.target.value = String(old); } },
+        { label: '重新發牌', primary: true, onClick: () => { apply(); newGame(); } }]);
+    });
+    $('selDifficulty').addEventListener('change', e => {
+      const old = settings.difficulty;
+      const apply = () => { settings.difficulty = e.target.value; saveSettings(); };
+      if (!gameInProgress()) { apply(); newGame(); return; }
+      showDialog('換難度？', '換難度會重新發牌，確定嗎？', [
+        { label: '繼續玩', onClick: () => { e.target.value = old; } },
+        { label: '重新發牌', primary: true, onClick: () => { apply(); newGame(); } }]);
+    });
+    $('btnNew').addEventListener('click', () => askNewGame());
+    $('btnGuide').addEventListener('click', showGuide);
+    $('btnLog').addEventListener('click', showLog);
+    $('btnSettings').addEventListener('click', showSettings);
+    $('btnPlay').addEventListener('click', onPlay);
+    $('btnPass').addEventListener('click', onPass);
+    $('btnHint').addEventListener('click', onHint);
+    $('btnSort').addEventListener('click', onSort);
+    $('overlay').addEventListener('click', e => { if (e.target === $('overlay') && !isAnimating) closeDialog(); });
+    window.addEventListener('resize', () => { if (state) layoutHand(); });
+
+    // 驗收與除錯用：讓外部可以讀狀態、代打
+    window.pmDebug = {
+      get state() { return state; },
+      get busy() { return isAnimating; },
+      get speed() { return speed; }, set speed(v) { speed = v; },
+      dispatch: dispatch, newGame: newGame, closeDialog: closeDialog, settings: settings
+    };
+
+    newGame();
+    if (/[?&]preview=1/.test(location.search)) showPreview();
+  })();
+  </script>
+</body>
+</html>
