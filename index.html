@@ -372,6 +372,21 @@
   <div id="load-screen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1e293b;color:#fff;font-family:sans-serif;font-size:1.1rem;gap:1rem;">
     <div id="load-msg">⏳ 遊戲載入中…</div>
   </div>
+  <script>
+    // 載入失敗的備援提示：主程式若在啟動前就出錯 (例如學校網路擋掉 Three.js)，
+    // 原本的環境檢查來不及執行，畫面會一直停在「載入中」。這段程式最先執行，負責改成錯誤訊息。
+    (function () {
+      var FAIL_TEXT = '😿 遊戲無法載入，請重新整理頁面或告訴老師';
+      function showLoadFailure() {
+        var screen = document.getElementById('load-screen');
+        var msg = document.getElementById('load-msg');
+        if (!screen || !msg || screen.style.display === 'none') return;
+        if (msg.textContent.indexOf('😿') === -1) msg.textContent = FAIL_TEXT;
+      }
+      window.addEventListener('error', showLoadFailure);
+      setTimeout(showLoadFailure, 10000); // 10 秒還沒載完也顯示
+    })();
+  </script>
 
   <!-- WebGL 畫布容器 -->
   <div id="webgl-container"></div>
