@@ -187,7 +187,9 @@
     if (info.kind === 'pm') {
       return option.sign === 'plus'
         ? from + ' + ' + info.amount + ' = ' + option.total
-        : from + ' − ' + info.amount + ' = ' + option.total;
+        : (from < info.amount
+          ? from + ' − ' + info.amount + ' → 0（最少是 0）'
+          : from + ' − ' + info.amount + ' = ' + option.total);
     }
     if (info.kind === 'max') return from + ' → 99';
     return info.short + '（還是 ' + option.total + '）';

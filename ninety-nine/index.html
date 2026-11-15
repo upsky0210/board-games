@@ -240,9 +240,10 @@
       opacity: 0;
       pointer-events: none;
       transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      width: max-content;
       max-width: 90vw;
       text-align: center;
-      white-space: nowrap;
+      border-radius: 18px;
     }
     .toast-box.show {
       opacity: 1;
@@ -300,9 +301,11 @@
     }
 
     .opponent-top {
-      top: 14px;
+      top: 10px;
       left: 50%;
       transform: translateX(-50%);
+      flex-direction: row;
+      gap: 8px;
     }
 
     .opponent-left {
@@ -865,8 +868,8 @@
        學生手牌區 (畫面下方，不旋轉透視)
        ========================================================================== */
     .player-hand-container {
-      height: calc(var(--card-h) + 26px);
-      min-height: calc(var(--card-h) + 26px);
+      height: calc(var(--card-h) + 50px);
+      min-height: calc(var(--card-h) + 50px);
       background: rgba(6, 36, 19, 0.95);
       border-top: 2px solid rgba(212, 175, 55, 0.4);
       display: flex;
@@ -874,7 +877,7 @@
       justify-content: center;
       position: relative;
       z-index: 60;
-      padding: 8px 12px;
+      padding: 12px 12px 30px;
       gap: 14px;
     }
 
@@ -1047,6 +1050,15 @@
       }
       .hand-cards {
         gap: 6px;
+      }
+      /* 手機直向：左右對手往上移，不要蓋住抽牌堆和棄牌堆 */
+      .opponent-left,
+      .opponent-right {
+        top: 20%;
+      }
+      .total-sub {
+        white-space: nowrap;
+        font-size: 0.72rem;
       }
       .card-effect-badge {
         font-size: 10px;
@@ -1250,7 +1262,7 @@
   </div>
 
   <!-- 外部函式庫與核心模組 -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="nn-core.js"></script>
 
   <!-- 主程式腳本 -->
@@ -1697,31 +1709,55 @@
         if (!startRect || !endRect) { resolve(); return; }
         if (fastForward) duration = 10;
 
+        // 飛行中的牌一律用標準牌的大小，從起點中心飛到終點中心
+        const ref = document.getElementById('discardPile').getBoundingClientRect();
+        const w = ref.width || 96;
+        const h = ref.height || 134;
+        const sx = startRect.left + startRect.width / 2;
+        const sy = startRect.top + startRect.height / 2;
+        const ex = endRect.left + endRect.width / 2;
+        const ey = endRect.top + endRect.height / 2;
+
         const flyer = renderCard(card, faceUp);
         flyer.classList.add('flying-card');
         flyer.style.position = 'fixed';
-        flyer.style.left = `${startRect.left}px`;
-        flyer.style.top = `${startRect.top}px`;
-        flyer.style.width = `${startRect.width || 96}px`;
-        flyer.style.height = `${startRect.height || 134}px`;
-        flyer.style.transition = `transform ${duration}ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity ${duration}ms ease`;
+        flyer.style.left = `${sx - w / 2}px`;
+        flyer.style.top = `${sy - h / 2}px`;
+        flyer.style.width = `${w}px`;
+        flyer.style.height = `${h}px`;
+        flyer.style.transition = `transform ${duration}ms cubic-bezier(0.2, 0.9, 0.3, 1)`;
 
         document.body.appendChild(flyer);
 
-        const dx = (endRect.left + (endRect.width || 96) / 2) - (startRect.left + (startRect.width || 96) / 2);
-        const dy = (endRect.top + (endRect.height || 134) / 2) - (startRect.top + (startRect.height || 134) / 2);
-        const scale = (endRect.width && startRect.width) ? (endRect.width / startRect.width) : 1;
-
         requestAnimationFrame(() => {
-          flyer.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+          requestAnimationFrame(() => {
+            flyer.style.transform = `translate(${ex - sx}px, ${ey - sy}px)`;
+          });
         });
 
         setTimeout(() => {
           if (flyer.parentNode) flyer.parentNode.removeChild(flyer);
           resolve();
-        }, duration + (fastForward ? 5 : 25));
+        }, duration + (fastForward ? 5 : 40));
       });
     }
+
+    /* 把一張牌放到棄牌堆最上面 */
+    function showDiscardTop(card) {
+      const discardEl = document.getElementById('discardPile');
+      if (!discardEl) return;
+      discardEl.innerHTML = '';
+      if (!card) {
+        discardEl.innerHTML = '<div class="discard-placeholder">牌堆</div>';
+        return;
+      }
+      const topView = renderCard(card, true);
+      topView.style.cursor = 'default';
+      topView.style.transform = `rotate(${((card.id % 9) - 4) * 2}deg)`;
+      discardEl.appendChild(topView);
+    }
+
+    let lastFormula = '';
 
     let mathChallengeStats = { correct: 0, total: 0 };
 
@@ -1734,14 +1770,16 @@
 
         // 更新算式列
         const formulaEl = document.getElementById('formulaBar');
-        if (formulaEl && e.formula) {
-          formulaEl.textContent = e.formula;
+        if (e.formula) {
+          lastFormula = e.formula;
+          if (formulaEl) formulaEl.textContent = e.formula;
         }
 
         let startRect = null;
         if (e.player === 0) {
           const cardEl = document.querySelector(`.hand-cards [data-card-id="${e.card.id}"]`);
           startRect = cardEl ? cardEl.getBoundingClientRect() : document.getElementById('handCards')?.getBoundingClientRect();
+          if (cardEl) cardEl.style.visibility = 'hidden';
         } else {
           const slot = getPlayerSlotElement(e.player);
           startRect = slot ? slot.getBoundingClientRect() : null;
@@ -1758,6 +1796,7 @@
           faceUp: true,
           duration: fastForward ? 35 : 340
         });
+        showDiscardTop(e.card);
 
         // 數字跳動
         await animateNumber(e.from, e.to, fastForward ? 35 : 400);
@@ -1773,7 +1812,10 @@
         const drawPileEl = document.getElementById('drawPile');
         const startRect = drawPileEl ? drawPileEl.getBoundingClientRect() : null;
         const targetSlot = getPlayerSlotElement(e.player);
-        const endRect = targetSlot ? targetSlot.getBoundingClientRect() : null;
+        const gapEl = (e.player === 0)
+          ? Array.from(document.querySelectorAll('.hand-cards .card-view')).find(el => el.style.visibility === 'hidden')
+          : null;
+        const endRect = (gapEl || targetSlot) ? (gapEl || targetSlot).getBoundingClientRect() : null;
 
         await flyCard({
           startRect,
@@ -1835,24 +1877,20 @@
             });
             cardsHtml += '</div>';
 
-            showDialog('😭 沒有牌可以出了', cardsHtml, [
-              {
-                text: '⏩ 快轉看結果',
-                primary: true,
-                onClick: () => {
-                  fastForward = true;
-                  closeDialog();
-                  scheduleComputerTurn();
+            // 停在這裡等學生選擇，電腦不會在視窗後面偷偷繼續打
+            await new Promise(resolve => {
+              showDialog('😭 沒有牌可以出了', cardsHtml, [
+                {
+                  text: '⏩ 快轉看結果',
+                  primary: true,
+                  onClick: () => { fastForward = true; resolve(); }
+                },
+                {
+                  text: '🔄 再玩一局',
+                  onClick: () => { newGame(); resolve(); }
                 }
-              },
-              {
-                text: '🔄 再玩一局',
-                onClick: () => {
-                  newGame();
-                }
-              }
-            ]);
-            await new Promise(r => setTimeout(r, 300));
+              ]);
+            });
           }
         } else {
           showToast(`💥 ${pName} 沒有牌可以出，淘汰！`);
@@ -1948,7 +1986,9 @@
         const minusTotal = Math.max(0, state.total - amt);
 
         let plusText = `加　${state.total} + ${amt} = ${plusTotal}`;
-        let minusText = `減　${state.total} − ${amt} = ${minusTotal}`;
+        let minusText = (state.total < amt)
+          ? `減　${state.total} − ${amt} → 0（最少是 0）`
+          : `減　${state.total} − ${amt} = ${minusTotal}`;
         if (!settings.showPreview) {
           plusText = `加 ${amt}`;
           minusText = `減 ${amt}`;
@@ -2063,7 +2103,10 @@
       const rank = card ? card.rank : 0;
       const isMathEligible = (card && (nnRank(card).kind === 'num' || rank === 10 || rank === 12));
 
-      if (settings.mathChallenge && isMathEligible) {
+      // 減到低於 0 會停在 0，這不是正常的減法算式，不拿來出題
+      const clamped = card && action.sign === 'minus' && state.total < nnRank(card).amount;
+
+      if (settings.mathChallenge && isMathEligible && !clamped) {
         promptMathChallenge(card, action);
       } else {
         dispatch(nnApply(state, action));
@@ -2189,31 +2232,12 @@
       }
 
       // 4. 棄牌堆 (最後出的牌)
-      const discardEl = document.getElementById('discardPile');
-      if (discardEl) {
-        discardEl.innerHTML = '';
-        if (state.discardPile.length > 0) {
-          const topCard = state.discardPile[state.discardPile.length - 1];
-          const topView = renderCard(topCard, true);
-          topView.style.cursor = 'default';
-          const rot = ((topCard.id % 9) - 4) * 2; // ±8度隨機旋轉感
-          topView.style.transform = `rotate(${rot}deg)`;
-          discardEl.appendChild(topView);
-        } else {
-          discardEl.innerHTML = '<div class="discard-placeholder">牌堆</div>';
-        }
-      }
+      showDiscardTop(state.discardPile.length > 0 ? state.discardPile[state.discardPile.length - 1] : null);
 
-      // 5. 算式列
+      // 5. 算式列（留著上一張牌的算式，學生隨時看得到）
       const formulaEl = document.getElementById('formulaBar');
       if (formulaEl) {
-        if (state.lastFormula) {
-          formulaEl.textContent = state.lastFormula;
-        } else if (state.phase === 'over') {
-          formulaEl.textContent = '遊戲結束';
-        } else {
-          formulaEl.textContent = '— 準備就緒 —';
-        }
+        formulaEl.textContent = lastFormula || '— 準備就緒 —';
       }
 
       // 6. 電腦對手座位
@@ -2389,8 +2413,14 @@
         difficulty: settings.difficulty
       });
       state = r.state;
-      state.lastFormula = '— 準備就緒 —';
+      lastFormula = '';
+      pendingAssignCardId = null;
+      document.querySelectorAll('.opponent-slot').forEach(el => {
+        el.classList.remove('target-selectable');
+        el.onclick = null;
+      });
       renderAll();
+      scheduleComputerTurn();
     }
 
     /* 規則說明對話框 */
